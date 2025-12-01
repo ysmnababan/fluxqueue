@@ -71,3 +71,161 @@ Scheduler daemon continuously:
 * Load test scripts (k6 or Vegeta)
 
 ---
+
+## 📐 High-Level Architecture
+
+```
+                   +-----------------------+
+                   |     HTTP API Server   |
+                   |  /enqueue, /status    |
+                   +-----------+-----------+
+                               |
+                           Enqueue Task
+                               |
+                               v
+                    +----------+----------+
+                    |      Redis          |
+                    |   - List: queue     |
+                    |   - ZSET: scheduler |
+                    +----------+----------+
+                               |
+     +-------------------------+---------------------------+
+     |                                                       |
+     v                                                       v
++----+-----+                                         +-------+------+
+| Scheduler |                                         | Worker Pool |
+|  (ZSET → List)                                      |  Goroutines |
++----+-----+                                         +-------+------+
+     |                                                       |
+     |                                               Execute Handler
+     |                                                       |
+     |                                               +-------+------+
+     |                                               |   Handlers   |
+     |                                               +--------------+
+     |
+Move due tasks     
+to ready queue
+```
+
+---
+
+## 📦 Project Structure
+
+```
+/ (repo root)
+├── .github/
+│   └── workflows/ci.yml            # GitHub Actions: unit + integration tests
+├── cmd/
+│   └── queue-server/
+│       └── main.go                 # bootstraps app, loads config, starts API + workers + scheduler
+├── api/
+│   └── http/
+│       ├── server.go               # HTTP server setup, routes
+│       └── handlers.go             # enqueue/schedule endpoints
+├── internal/
+│   ├── config/
+│   │   └── config.go               # env/config parsing
+│   ├── model/
+│   │   └── task.go                 # Task struct & validation
+│   ├── store/
+│   │   ├── redis_client.go         # Redis connection & helpers
+│   │   ├── queue.go                # Enqueue/Pop/Schedule/MoveToReady/DLQ
+│   │   └── lua_scripts.go          # (optional) atomic lua scripts
+│   ├── worker/
+│   │   ├── pool.go                 # worker pool implementation
+│   │   ├── executor.go             # execute task + retry + backoff
+│   │   └── registry.go             # handler registry, RegisterHandler(...)
+│   ├── scheduler/
+│   │   └── scheduler.go            # scheduled-to-ready mover + reclaim logic
+│   ├── metrics/
+│   │   └── metrics.go              # prometheus metrics registration
+│   └── logging/
+│       └── logger.go               # zap/logrus wrapper
+├── pkg/
+│   └── backoff/
+│       └── backoff.go              # backoff algorithm used by workers
+├── scripts/
+│   ├── demo_enqueue.sh             # demo scripts to enqueue tasks
+│   └── load_test.sh                # example vegeta/k6 wrapper
+├── deploy/
+│   └── docker-compose.yml          # Redis + app (dev)
+├── configs/
+│   └── dev.yaml                    # example config
+├── tests/
+│   └── integration/
+│       └── redis_integration_test.go
+├── docs/
+│   └── architecture.md
+├── go.mod
+├── README.md
+└── Makefile
+```
+
+---
+
+## 🧪 Running Locally
+
+### 1. Start Redis + services
+
+```
+docker-compose up -d
+```
+
+### 2. Start API server
+
+```
+go run ./cmd/api
+```
+
+### 3. Start worker service
+
+```
+go run ./cmd/worker
+```
+
+### 4. Enqueue a task
+
+```
+curl -X POST localhost:8080/enqueue \
+  -H "Content-Type: application/json" \
+  -d '{"type":"email.send", "payload":{"to":"user@example.com"}}'
+```
+
+---
+
+## 🔥 Example Use Cases
+
+* Asynchronous email sending
+* Generating PDFs or images
+* Webhook delivery with retries
+* ETL/CDC background tasks
+* Data ingestion pipelines
+* Scheduled billing tasks
+* Cleanup jobs (TTL cleanup, cache invalidation)
+
+---
+
+## 🧱 Roadmap
+
+* Redis Streams backend (optional)
+* Dashboard UI for monitoring
+* Multi-worker clustering with auto-scaling
+* Canary deployment of new handler versions
+* Distributed tracing (OpenTelemetry)
+
+---
+
+## 🎯 Why This Project Matters
+
+This system demonstrates:
+
+* **Goroutine orchestration**
+* **Channel patterns** (fan-out, rate-limiting, worker pools)
+* **Distributed job scheduling**
+* **Visibility + retry mechanisms**
+* **Backpressure and graceful shutdown**
+* **Concurrency safety & performance testing**
+
+It represents production-style backend engineering skills and is ideal as a portfolio project.
+
+---
