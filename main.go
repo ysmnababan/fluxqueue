@@ -1,9 +1,12 @@
 package main
 
 import (
+	"fluxqueue/api/http"
 	"fluxqueue/internal/config"
 	"fmt"
 	"log"
+
+	"github.com/labstack/echo/v4"
 )
 
 func main() {
@@ -13,4 +16,8 @@ func main() {
 	}
 
 	fmt.Println(*cfg)
+	e := echo.New()
+	http.InitServer(e)
+
+	e.Logger.Fatal(e.Start(fmt.Sprintf(":%d", cfg.Server.HTTPPort)))
 }
