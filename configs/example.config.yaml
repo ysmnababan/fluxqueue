@@ -1,0 +1,15 @@
+redis:
+  addr: "localhost:6379"
+  password: ""
+  db: 0
+
+server:
+  http_port: 8080
+  shutdown_timeout: "5s"
+
+worker:
+  worker_count: 10
+  job_timeout: "45s"
+  max_retries: 5
+
+log_level: "debug"

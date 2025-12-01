@@ -115,9 +115,6 @@ to ready queue
 / (repo root)
 ├── .github/
 │   └── workflows/ci.yml            # GitHub Actions: unit + integration tests
-├── cmd/
-│   └── queue-server/
-│       └── main.go                 # bootstraps app, loads config, starts API + workers + scheduler
 ├── api/
 │   └── http/
 │       ├── server.go               # HTTP server setup, routes
@@ -158,6 +155,7 @@ to ready queue
 │   └── architecture.md
 ├── go.mod
 ├── README.md
+├── main.go 
 └── Makefile
 ```
 
