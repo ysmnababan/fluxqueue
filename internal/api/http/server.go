@@ -1,14 +1,15 @@
 package http
 
 import (
+	"fluxqueue/internal/api/http/middleware"
 	"fluxqueue/pkg/validator"
 
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 )
 
-func InitServer(e *echo.Echo) {
-	e.Use(middleware.Recover())
-	e.Use(middleware.Logger())
+func InitServer() *echo.Echo {
+	e := echo.New()
+	middleware.Setup(e)
 	e.Validator = validator.NewCustomValidator()
+	return e
 }

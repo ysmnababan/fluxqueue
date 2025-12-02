@@ -16,6 +16,8 @@ type ServerConfig struct {
 	HTTPPort        int           `mapstructure:"http_port"`
 	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
 	Env             string        `mapstructure:"env"`
+	ServiceName     string        `mapstructure:"service_name"`
+	Version         string        `mapstructure:"version"`
 }
 
 type WorkerConfig struct {

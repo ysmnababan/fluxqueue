@@ -1,12 +1,15 @@
 package main
 
 import (
-	"fluxqueue/api/http"
+	"context"
+	"errors"
+	"fluxqueue/internal/app"
 	"fluxqueue/internal/config"
-	"fmt"
 	"log"
-
-	"github.com/labstack/echo/v4"
+	"net/http"
+	"os"
+	"os/signal"
+	"time"
 )
 
 func main() {
@@ -14,10 +17,32 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load config file: %v", err)
 	}
+	app, err := app.NewApp(cfg)
+	if err != nil {
+		log.Fatalf("new app: %v", err)
+	}
 
-	fmt.Println(*cfg)
-	e := echo.New()
-	http.InitServer(e)
+	go func() {
+		if err := app.Start(); err != nil {
+			if errors.Is(err, http.ErrServerClosed) {
+				// expected on graceful shutdown
+				log.Printf("server closed")
+				return
+			}
+			// real error
+			log.Fatalf("app start failed: %v", err)
+		}
+	}()
 
-	e.Logger.Fatal(e.Start(fmt.Sprintf(":%d", cfg.Server.HTTPPort)))
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt)
+
+	<-sig
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := app.Shutdown(ctx); err != nil {
+		log.Fatalf("shutdown error: %v", err)
+	}
+	log.Println("shutdown complete")
 }
