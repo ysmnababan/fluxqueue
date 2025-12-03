@@ -2,7 +2,7 @@ package http
 
 import (
 	"fluxqueue/internal/api/http/middleware"
-	"fluxqueue/pkg/validator"
+	"fluxqueue/utils/validator"
 
 	"github.com/labstack/echo/v4"
 )
