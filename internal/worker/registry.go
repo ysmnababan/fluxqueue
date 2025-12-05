@@ -2,10 +2,11 @@ package worker
 
 import (
 	"context"
+	"fluxqueue/internal/model"
 	"sync"
 )
 
-type HandlerFunc func(context.Context) error
+type HandlerFunc func(context.Context, *model.Task) error
 
 type HandlerRegistry struct {
 	// use RWMutex instead of Mutex, because it won't block read if not writing.
