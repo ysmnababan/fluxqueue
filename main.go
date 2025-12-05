@@ -21,9 +21,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("new app: %v", err)
 	}
-
+	ctx := context.Background()
 	go func() {
-		if err := app.Start(); err != nil {
+		if err := app.Start(ctx); err != nil {
 			if errors.Is(err, http.ErrServerClosed) {
 				// expected on graceful shutdown
 				log.Printf("server closed")

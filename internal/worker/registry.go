@@ -16,6 +16,13 @@ type HandlerRegistry struct {
 	handlers map[string]HandlerFunc // map is not concurrent safe, so add mutex
 }
 
+func NewRegistry() *HandlerRegistry {
+	return &HandlerRegistry{
+		mu:       sync.RWMutex{},
+		handlers: make(map[string]HandlerFunc),
+	}
+}
+
 func (r *HandlerRegistry) Register(taskType string, fun HandlerFunc) {
 	r.mu.Lock() // exclusive writes, only one goroutine can modify at a time
 	r.handlers[taskType] = fun

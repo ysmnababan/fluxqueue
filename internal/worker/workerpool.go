@@ -2,8 +2,8 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"fluxqueue/internal/model"
-	"fmt"
 	"sync"
 	"time"
 
@@ -18,19 +18,18 @@ type IRedisClient interface {
 type WorkerPool struct {
 	redis      IRedisClient
 	registry   *HandlerRegistry
-	sem        chan struct{} // semaphore
+	maxWorkers int
 	queueReady string
 	wg         *sync.WaitGroup
 	cancelFunc context.CancelFunc
 }
 
 func NewWorkerPool(maxWorkerPool int, r IRedisClient, registry *HandlerRegistry) WorkerPool {
-	sem := make(chan struct{}, maxWorkerPool)
 	wg := &sync.WaitGroup{}
 	return WorkerPool{
 		redis:      r,
 		registry:   registry,
-		sem:        sem,
+		maxWorkers: maxWorkerPool,
 		wg:         wg,
 		queueReady: "queue:ready",
 	}
@@ -40,60 +39,72 @@ func (w *WorkerPool) Start(ctx context.Context) {
 	newCtx, cancel := context.WithCancel(ctx)
 	w.cancelFunc = cancel
 
-	go func() {
-		for {
-			select {
-			case <-newCtx.Done():
-				// cancellation requested
-				log.Info().Msg("Worker pool is stopped, wait for graceful shutdown")
-				w.wg.Wait()
-				return
-			case w.sem <- struct{}{}:
-				// process each task
-				task, err := w.redis.BRPop(newCtx, time.Second, w.queueReady)
-				if err != nil {
-					log.Error().Err(err).Msg("error fetching task from store")
-					continue
-				}
+	w.wg.Add(w.maxWorkers)
+	for i := range w.maxWorkers {
+		idx := i
+		go w.workerLoop(newCtx, idx)
+	}
+}
 
-				w.wg.Add(1)
-				go func() {
-					defer func() {
-						<-w.sem // return the semaphore
-					}()
-					defer w.wg.Done()
-					err := w.processTask(newCtx, task)
-					if err != nil {
-						log.Error().Err(err).Msg("error processing Task")
-						// TODO: add process of readding to queue
-						// there must be another storage to know how many times each task is retried
-						// maybe use Lpush or Zadd with incremental time retry
-						
-					}
-					log.Info().Msg("task is executed successfuly")
-				}()
+func (w *WorkerPool) workerLoop(ctx context.Context, workerId int) {
+	for {
+		select {
+		case <-ctx.Done():
+			w.wg.Done()
+			log.Info().Msgf("worker %d is stopping\n", workerId)
+			return
+		default:
+			taskStr, err := w.redis.BRPop(ctx, 0, w.queueReady)
+			if err != nil {
+				log.Error().Err(err).Msg("error fetching task from store")
+				continue
 			}
+
+			// unmarshall the Task
+			task := &model.Task{}
+			err = json.Unmarshal([]byte(taskStr), task)
+			if err != nil {
+				log.Error().Err(err).Msg("invalid task JSON")
+				continue
+			}
+			w.processTask(ctx, workerId, task)
 		}
-	}()
+	}
 }
 
 func (w *WorkerPool) Stop() {
 	w.cancelFunc()
+	w.wg.Wait()
 }
 
-func (w *WorkerPool) processTask(ctx context.Context, task string) error {
-	// process the 'task' string into Task model
-	_ = task
-	taskType := task
+func (w *WorkerPool) processTask(ctx context.Context, workerId int, task *model.Task) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error().Msgf("worker %d panic: %v", workerId, r)
+		}
+	}()
 
 	// get the registry
-	handler, ok := w.registry.Get(taskType)
+	handler, ok := w.registry.Get(task.Type)
 	if !ok {
-		return fmt.Errorf("no handler registry found for %s", taskType)
+		log.Error().Msgf("no handler found for the task: %s", task.Type)
+		return
 	}
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 	err := handler(ctx, &model.Task{})
+	task.Attempts++
 	if err != nil {
-		return err
+		log.Error().Err(err).Msg("error handling task")
+		// TODO: add process of readding to queue
+		// there must be another storage to know how many times each task is retried
+		// maybe use Lpush or Zadd with incremental time retry
+		if task.Attempts >= task.MaxRetries {
+			// move to DLQ for further inspection
+			log.Info().Msg("add to DLQ")
+		} else {
+			// add to queue again with
+			log.Info().Msg("retry x seconds later")
+		}
 	}
-	return nil
 }

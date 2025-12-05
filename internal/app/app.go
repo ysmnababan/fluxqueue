@@ -4,6 +4,7 @@ import (
 	"context"
 	"fluxqueue/internal/api/http/handler"
 	"fluxqueue/internal/config"
+	"fluxqueue/internal/worker"
 	"fmt"
 
 	"github.com/labstack/echo/v4"
@@ -20,19 +21,18 @@ type App struct {
 	// Tasks *service.TaskService
 
 	httpServer *echo.Echo
-	// Worker *worker.Pool
+	Worker     worker.WorkerPool
 }
 
-func (a *App) Start() error {
-	// go a.Worker.Start(context.Background())
+func (a *App) Start(ctx context.Context) error {
+	a.Worker.Start(ctx)
 	log.Info().Str("env", a.Cfg.Server.Env).Msg("config loaded")
 	return a.httpServer.Start(fmt.Sprintf(":%d", a.Cfg.Server.HTTPPort))
 }
 
 func (a *App) Shutdown(ctx context.Context) error {
-	// a.Worker.Stop(ctx)
 	// return a.Redis.Close()
-
+	a.Worker.Stop()
 	return a.httpServer.Shutdown(ctx)
 }
 
