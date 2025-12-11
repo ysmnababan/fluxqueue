@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fluxqueue/internal/model"
+	"fmt"
 	"sync"
 	"time"
 
@@ -40,6 +41,7 @@ func (w *WorkerPool) Start(ctx context.Context) {
 	w.cancelFunc = cancel
 
 	w.wg.Add(w.maxWorkers)
+	log.Info().Msgf("[WORKER POOL STARTED]: %d instances", w.maxWorkers)
 	for i := range w.maxWorkers {
 		idx := i
 		go w.workerLoop(newCtx, idx)
@@ -48,6 +50,7 @@ func (w *WorkerPool) Start(ctx context.Context) {
 
 func (w *WorkerPool) workerLoop(ctx context.Context, workerId int) {
 	for {
+		fmt.Println("here", workerId)
 		select {
 		case <-ctx.Done():
 			w.wg.Done()

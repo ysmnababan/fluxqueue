@@ -29,7 +29,7 @@ func NewScheduler(redis IRedisClient, tickInterval time.Duration) Scheduler {
 		queueScheduled: "queue:scheduled",
 		queueReady:     "queue:ready",
 		redis:          redis,
-		tickInterval: tickInterval,
+		tickInterval:   tickInterval,
 	}
 }
 
@@ -37,24 +37,27 @@ func (s *Scheduler) Start(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	s.cancelFunc = cancel
 	ticker := time.NewTicker(s.tickInterval)
-	for {
-		select {
-		case <-ctx.Done():
-			log.Info().Msg("Scheduler is terminating ...")
-			return
-		case <-ticker.C:
-			// take a executable task(s)
-			now := time.Now().UTC().UnixMilli()
-			moved, err := s.redis.MoveScheduledToReady(ctx, s.queueScheduled, s.queueReady, fmt.Sprintf("%d", now))
-			if err != nil {
-				log.Error().Err(err).Msg("scheduler failed")
-				continue
-			}
-			if moved > 0 {
-				log.Info().Msgf("scheduler moved %d items to ready queue", moved)
+	go func() {
+		log.Info().Msg("[SCHEDULER STARTED]")
+		for {
+			select {
+			case <-ctx.Done():
+				log.Info().Msg("Scheduler is terminating ...")
+				return
+			case <-ticker.C:
+				// take a executable task(s)
+				now := time.Now().UTC().UnixMilli()
+				moved, err := s.redis.MoveScheduledToReady(ctx, s.queueScheduled, s.queueReady, fmt.Sprintf("%d", now))
+				if err != nil {
+					log.Error().Err(err).Msg("scheduler failed")
+					continue
+				}
+				if moved > 0 {
+					log.Info().Msgf("scheduler moved %d items to ready queue", moved)
+				}
 			}
 		}
-	}
+	}()
 }
 
 func (s *Scheduler) Stop() {

@@ -26,7 +26,9 @@ type handler struct {
 
 func NewHandler(redis IRedisClient) *handler {
 	h := &handler{
-		redis: redis,
+		redis:          redis,
+		queueReady:     "queue:ready",
+		queueScheduled: "queue:scheduled",
 	}
 	return h
 }
