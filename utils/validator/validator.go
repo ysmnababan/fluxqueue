@@ -36,9 +36,13 @@ func validateIsDate(fl valid.FieldLevel) bool {
 	if field == "" {
 		return true
 	}
-	if _, err := time.Parse("2006-01-02", field); err != nil {
-		return false
+	// Try parsing with date and time format first
+	if _, err := time.Parse("2006-01-02 15:04:05", field); err == nil {
+		return true
 	}
-
-	return true
+	// Fallback to date only
+	if _, err := time.Parse("2006-01-02", field); err == nil {
+		return true
+	}
+	return false
 }

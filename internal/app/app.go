@@ -40,9 +40,10 @@ func (a *App) Shutdown(ctx context.Context) error {
 }
 
 func (a *App) registerRoute() {
-	h := handler.NewHandler()
+	h := handler.NewHandler(a.Redis)
 	api := a.httpServer.Group("/api")
 	v1 := api.Group("/v1")
 
 	v1.POST("/enqueue", h.Enqueue)
+	v1.POST("/schedule", h.Schedule)
 }
