@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"fluxqueue/internal/model"
 	"fmt"
 	"time"
 
@@ -66,6 +67,26 @@ func (r *redisStore) BRPop(ctx context.Context, timeout time.Duration, keys ...s
 		return "", fmt.Errorf("unexpected brpop response: %#v", res)
 	}
 	return res[1], nil
+}
+
+// ZPopMin removes and returns the element with the lowest score.
+// Count = 1 means pop a single item.
+func (r *redisStore) ZPopMin(ctx context.Context, key string) ([]model.ZItem, error) {
+	res, err := r.client.ZPopMin(ctx, key, 1).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]model.ZItem, len(res))
+	for i, v := range res {
+		memberStr, _ := v.Member.(string)
+		items[i] = model.ZItem{
+			Member: memberStr,
+			Score:  v.Score,
+		}
+	}
+
+	return items, nil
 }
 
 // ---------------------- ZSET (scheduled) operations --------------------
