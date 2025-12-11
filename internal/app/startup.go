@@ -4,8 +4,10 @@ import (
 	"fluxqueue/internal/api/http"
 	"fluxqueue/internal/config"
 	"fluxqueue/internal/logging"
+	"fluxqueue/internal/scheduler"
 	"fluxqueue/internal/store"
 	"fluxqueue/internal/worker"
+	"time"
 
 	"github.com/rs/zerolog"
 )
@@ -23,7 +25,10 @@ func NewApp(cfg *config.Config) (*App, error) {
 	)
 	handlerRegistry := worker.NewRegistry()
 	worker := worker.NewWorkerPool(cfg.Worker.WorkerCount, redis, handlerRegistry)
-	// queue := store.NewQueue(redis, logger)
+	scheduler := scheduler.NewScheduler(
+		redis,
+		time.Millisecond*time.Duration(cfg.Worker.SchedulerTickInterval))
+
 	// svc := service.NewTaskService(queue, logger)
 
 	e := http.InitServer()
@@ -32,6 +37,8 @@ func NewApp(cfg *config.Config) (*App, error) {
 		Log:        logger,
 		httpServer: e,
 		Worker:     worker,
+		Scheduler:  scheduler,
+		Redis:      redis,
 	}
 	app.registerRoute()
 	return app, nil

@@ -9,13 +9,13 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// redisStore is a thin wrapper around go-redis for queue operations.
-type redisStore struct {
+// RedisStore is a thin wrapper around go-redis for queue operations.
+type RedisStore struct {
 	client *redis.Client
 }
 
-// NewRedisClient creates a new redisStore.
-func NewRedisClient(addr, pwd string, db int) *redisStore {
+// NewRedisClient creates a new RedisStore.
+func NewRedisClient(addr, pwd string, db int) *RedisStore {
 	rdb := redis.NewClient(
 		&redis.Options{
 			Addr:     addr,
@@ -23,41 +23,41 @@ func NewRedisClient(addr, pwd string, db int) *redisStore {
 			DB:       db,
 		},
 	)
-	return &redisStore{
+	return &RedisStore{
 		client: rdb,
 	}
 }
 
 // Ping tests the connection.
-func (r *redisStore) Ping(ctx context.Context) error {
+func (r *RedisStore) Ping(ctx context.Context) error {
 	return r.client.Ping(ctx).Err()
 }
 
 // Close closes the underlying redis client.
-func (r *redisStore) Close() error {
+func (r *RedisStore) Close() error {
 	return r.client.Close()
 }
 
 // ---------------------- LIST (queue) operations -------------------------
 
 // LPush pushes a value to the head (left) of the list.
-func (r *redisStore) LPush(ctx context.Context, key string, value string) error {
+func (r *RedisStore) LPush(ctx context.Context, key string, value string) error {
 	return r.client.LPush(ctx, key, value).Err()
 }
 
 // RPush pushes a value to the tail (right) of the list.
-func (r *redisStore) RPush(ctx context.Context, key string, value string) error {
+func (r *RedisStore) RPush(ctx context.Context, key string, value string) error {
 	return r.client.RPush(ctx, key, value).Err()
 }
 
 // LLen returns the length of the list.
-func (r *redisStore) LLen(ctx context.Context, key string) (int64, error) {
+func (r *RedisStore) LLen(ctx context.Context, key string) (int64, error) {
 	return r.client.LLen(ctx, key).Result()
 }
 
 // BRPop performs a blocking right pop with timeout. It returns the popped value (not the key).
 // If timeout is 0, call will block indefinitely until an element is available.
-func (r *redisStore) BRPop(ctx context.Context, timeout time.Duration, keys ...string) (string, error) {
+func (r *RedisStore) BRPop(ctx context.Context, timeout time.Duration, keys ...string) (string, error) {
 	res, err := r.client.BRPop(ctx, timeout, keys...).Result()
 	if err != nil {
 		return "", err
@@ -71,7 +71,7 @@ func (r *redisStore) BRPop(ctx context.Context, timeout time.Duration, keys ...s
 
 // ZPopMin removes and returns the element with the lowest score.
 // Count = 1 means pop a single item.
-func (r *redisStore) ZPopMin(ctx context.Context, key string) ([]model.ZItem, error) {
+func (r *RedisStore) ZPopMin(ctx context.Context, key string) ([]model.ZItem, error) {
 	res, err := r.client.ZPopMin(ctx, key, 1).Result()
 	if err != nil {
 		return nil, err
@@ -92,13 +92,13 @@ func (r *redisStore) ZPopMin(ctx context.Context, key string) ([]model.ZItem, er
 // ---------------------- ZSET (scheduled) operations --------------------
 
 // ZAdd adds a member with score to a sorted set.
-func (r *redisStore) ZAdd(ctx context.Context, key string, score float64, member string) error {
+func (r *RedisStore) ZAdd(ctx context.Context, key string, score float64, member string) error {
 	z := redis.Z{Score: score, Member: member}
 	return r.client.ZAdd(ctx, key, z).Err()
 }
 
 // ZRangeByScore returns members in the zset with score between min and max (inclusive).
-func (r *redisStore) ZRangeByScore(ctx context.Context, key string, min, max string) ([]string, error) {
+func (r *RedisStore) ZRangeByScore(ctx context.Context, key string, min, max string) ([]string, error) {
 	opt := &redis.ZRangeBy{
 		Min: min,
 		Max: max,
@@ -107,12 +107,12 @@ func (r *redisStore) ZRangeByScore(ctx context.Context, key string, min, max str
 }
 
 // ZRem removes members from the sorted set.
-func (r *redisStore) ZRem(ctx context.Context, key string, members ...string) (int64, error) {
+func (r *RedisStore) ZRem(ctx context.Context, key string, members ...string) (int64, error) {
 	return r.client.ZRem(ctx, key, members).Result()
 }
 
 // ZCount returns number of members in score range
-func (r *redisStore) ZCount(ctx context.Context, key, min, max string) (int64, error) {
+func (r *RedisStore) ZCount(ctx context.Context, key, min, max string) (int64, error) {
 	return r.client.ZCount(ctx, key, min, max).Result()
 }
 
@@ -121,7 +121,7 @@ func (r *redisStore) ZCount(ctx context.Context, key, min, max string) (int64, e
 // MoveScheduledToReady atomically moves all members with score <= maxScore from the scheduled zset to the ready list.
 // It returns the number of moved items.
 // Note: maxScore should be a string representing the score (e.g. "1700000000000" as unix milliseconds).
-func (r *redisStore) MoveScheduledToReady(ctx context.Context, zsetKey, readyListKey, maxScore string) (int64, error) {
+func (r *RedisStore) MoveScheduledToReady(ctx context.Context, zsetKey, readyListKey, maxScore string) (int64, error) {
 	// Lua script: get items, remove from zset, push to list (LPUSH)
 	// It returns the number of moved items.
 	const lua = `
@@ -151,7 +151,7 @@ return #items
 
 // MoveOneScheduledToReady atomically moves up to `limit` items with score <= maxScore from zset -> list and returns moved members.
 // Useful to limit how many tasks scheduler moves per iteration.
-func (r *redisStore) MoveOneScheduledToReady(ctx context.Context, zsetKey, readyListKey, maxScore string, limit int64) ([]string, error) {
+func (r *RedisStore) MoveOneScheduledToReady(ctx context.Context, zsetKey, readyListKey, maxScore string, limit int64) ([]string, error) {
 	// This variant fetches up to `limit` members, removes them and pushes to list.
 	const lua = `
 local items = redis.call('ZRANGEBYSCORE', KEYS[1], '-inf', ARGV[1], 'LIMIT', 0, tonumber(ARGV[2]))
@@ -184,12 +184,12 @@ return items
 // ---------------------- DLQ helpers ------------------------------------
 
 // PushToDLQ pushes the given task string to the DLQ list.
-func (r *redisStore) PushToDLQ(ctx context.Context, dlqKey, taskJSON string) error {
+func (r *RedisStore) PushToDLQ(ctx context.Context, dlqKey, taskJSON string) error {
 	return r.client.LPush(ctx, dlqKey, taskJSON).Err()
 }
 
 // PopFromDLQ pops one item from the DLQ (non-blocking). Returns "" if none.
-func (r *redisStore) PopFromDLQ(ctx context.Context, dlqKey string) (string, error) {
+func (r *RedisStore) PopFromDLQ(ctx context.Context, dlqKey string) (string, error) {
 	res, err := r.client.RPop(ctx, dlqKey).Result()
 	if err != nil {
 		if err == redis.Nil {
@@ -203,12 +203,12 @@ func (r *redisStore) PopFromDLQ(ctx context.Context, dlqKey string) (string, err
 // ---------------------- Idempotency & processing marker ----------------
 
 // SetNX sets key if not exists with TTL. Returns true if set.
-func (r *redisStore) SetNX(ctx context.Context, key string, val string, ttl time.Duration) (bool, error) {
+func (r *RedisStore) SetNX(ctx context.Context, key string, val string, ttl time.Duration) (bool, error) {
 	return r.client.SetNX(ctx, key, val, ttl).Result()
 }
 
 // Get returns string value for key.
-func (r *redisStore) Get(ctx context.Context, key string) (string, error) {
+func (r *RedisStore) Get(ctx context.Context, key string) (string, error) {
 	res, err := r.client.Get(ctx, key).Result()
 	if err == redis.Nil {
 		return "", nil
@@ -217,36 +217,36 @@ func (r *redisStore) Get(ctx context.Context, key string) (string, error) {
 }
 
 // Del deletes keys.
-func (r *redisStore) Del(ctx context.Context, keys ...string) (int64, error) {
+func (r *RedisStore) Del(ctx context.Context, keys ...string) (int64, error) {
 	return r.client.Del(ctx, keys...).Result()
 }
 
 // SetProcessing creates a processing marker for a task (e.g. processing:<taskID>) with TTL.
 // Returns true if set.
-func (r *redisStore) SetProcessing(ctx context.Context, processingKey, value string, ttl time.Duration) (bool, error) {
+func (r *RedisStore) SetProcessing(ctx context.Context, processingKey, value string, ttl time.Duration) (bool, error) {
 	return r.client.SetNX(ctx, processingKey, value, ttl).Result()
 }
 
 // ExtendProcessingTTL extends TTL for a processing key.
-func (r *redisStore) Expire(ctx context.Context, key string, ttl time.Duration) (bool, error) {
+func (r *RedisStore) Expire(ctx context.Context, key string, ttl time.Duration) (bool, error) {
 	return r.client.Expire(ctx, key, ttl).Result()
 }
 
 // ---------------------- HASH helpers (metadata) -------------------------
 
 // HSet sets multiple fields in a hash.
-func (r *redisStore) HSet(ctx context.Context, key string, values map[string]interface{}) error {
+func (r *RedisStore) HSet(ctx context.Context, key string, values map[string]interface{}) error {
 	return r.client.HSet(ctx, key, values).Err()
 }
 
 // HGetAll returns all fields in a hash.
-func (r *redisStore) HGetAll(ctx context.Context, key string) (map[string]string, error) {
+func (r *RedisStore) HGetAll(ctx context.Context, key string) (map[string]string, error) {
 	return r.client.HGetAll(ctx, key).Result()
 }
 
 // ---------------------- Utility helpers --------------------------------
 
 // ZScore returns score of a member.
-func (r *redisStore) ZScore(ctx context.Context, key string, member string) (float64, error) {
+func (r *RedisStore) ZScore(ctx context.Context, key string, member string) (float64, error) {
 	return r.client.ZScore(ctx, key, member).Result()
 }

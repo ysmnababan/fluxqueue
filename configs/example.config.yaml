@@ -6,6 +6,9 @@ redis:
 server:
   http_port: 8080
   shutdown_timeout: "5s"
+  env: development
+  service_name: fluxqueue
+  version: v0.1.0
 
 worker:
   worker_count: 10

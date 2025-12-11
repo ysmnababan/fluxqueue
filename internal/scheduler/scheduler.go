@@ -22,16 +22,14 @@ type Scheduler struct {
 	redis          IRedisClient
 	cancelFunc     context.CancelFunc
 	tickInterval   time.Duration
-	backoffTime    [3]int
 }
 
-func NewScheduler(backoffTime [3]int, redis IRedisClient, tickInterval time.Duration) *Scheduler {
-	return &Scheduler{
+func NewScheduler(redis IRedisClient, tickInterval time.Duration) Scheduler {
+	return Scheduler{
 		queueScheduled: "queue:scheduled",
 		queueReady:     "queue:ready",
 		redis:          redis,
-		backoffTime:    backoffTime,
-		tickInterval:   tickInterval,
+		tickInterval: tickInterval,
 	}
 }
 

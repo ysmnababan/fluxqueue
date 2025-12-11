@@ -21,9 +21,10 @@ type ServerConfig struct {
 }
 
 type WorkerConfig struct {
-	WorkerCount int           `mapstructure:"worker_count"`
-	JobTimeout  time.Duration `mapstructure:"job_timeout"`
-	MaxRetries  int           `mapstructure:"max_retries"`
+	WorkerCount           int           `mapstructure:"worker_count"`
+	JobTimeout            time.Duration `mapstructure:"job_timeout"`
+	MaxRetries            int           `mapstructure:"max_retries"`
+	SchedulerTickInterval int           `mapstructure:"scheduler_tick_interval"` // in millisecond
 }
 
 type Config struct {
