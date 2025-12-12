@@ -5,6 +5,7 @@ import (
 	"fluxqueue/internal/config"
 	"fluxqueue/internal/logging"
 	"fluxqueue/internal/scheduler"
+	"fluxqueue/internal/service"
 	"fluxqueue/internal/store"
 	"fluxqueue/internal/worker"
 	"time"
@@ -24,16 +25,19 @@ func NewApp(cfg *config.Config) (*App, error) {
 		cfg.Redis.DB,
 	)
 	handlerRegistry := worker.NewRegistry()
+	svc := service.NewTaskService()
+	handlerRegistry.Register("email.send", svc.SendEmail)
+	handlerRegistry.Register("report.generate", svc.GenerateExcelReport)
+
 	worker := worker.NewWorkerPool(
 		cfg.Worker.WorkerCount,
 		redis,
 		handlerRegistry,
 		cfg.Worker.BaseRetryInterval)
+
 	scheduler := scheduler.NewScheduler(
 		redis,
 		time.Millisecond*time.Duration(cfg.Worker.SchedulerTickInterval))
-
-	// svc := service.NewTaskService(queue, logger)
 
 	e := http.InitServer()
 	app := &App{

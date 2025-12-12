@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fluxqueue/internal/model"
+	"math"
 	"sync"
 	"time"
 
@@ -105,22 +106,19 @@ func (w *WorkerPool) processTask(ctx context.Context, workerId int, task *model.
 	task.Attempts++
 	if err != nil {
 		log.Error().Err(err).Msg("error handling task")
-		// TODO: add process of readding to queue
-		// there must be another storage to know how many times each task is retried
-		// maybe use Lpush or Zadd with incremental time retry
-		if task.Attempts >= task.MaxRetries {
+		if task.Attempts > task.MaxRetries {
 			// move to DLQ for further inspection
 			log.Info().Msg("add to DLQ")
 		} else {
-			delay := w.baseRetryInterval*1 ^ (task.Attempts - 1)
+			delaySec := w.baseRetryInterval * int(math.Pow(float64(2), float64(task.Attempts-1)))
 			data, _ := json.Marshal(task)
-			now := time.Now().Add(time.Duration(delay) * time.Second).UTC()
+			now := time.Now().Add(time.Duration(delaySec) * time.Second).UTC()
 			err := w.redis.ZAdd(ctx, w.queueScheduled, float64(now.UnixMilli()), string(data))
 			if err != nil {
 				log.Error().Err(err).Msg("error add to scheduled")
 				return
 			}
-			log.Info().Msgf("retry task %s for %d seconds later", task.ID, delay)
+			log.Info().Msgf("retry task %s for %d seconds later", task.ID, delaySec)
 		}
 	}
 }
