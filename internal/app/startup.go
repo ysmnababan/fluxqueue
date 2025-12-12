@@ -24,7 +24,11 @@ func NewApp(cfg *config.Config) (*App, error) {
 		cfg.Redis.DB,
 	)
 	handlerRegistry := worker.NewRegistry()
-	worker := worker.NewWorkerPool(cfg.Worker.WorkerCount, redis, handlerRegistry)
+	worker := worker.NewWorkerPool(
+		cfg.Worker.WorkerCount,
+		redis,
+		handlerRegistry,
+		cfg.Worker.BaseRetryInterval)
 	scheduler := scheduler.NewScheduler(
 		redis,
 		time.Millisecond*time.Duration(cfg.Worker.SchedulerTickInterval))

@@ -25,6 +25,7 @@ type WorkerConfig struct {
 	JobTimeout            time.Duration `mapstructure:"job_timeout"`
 	MaxRetries            int           `mapstructure:"max_retries"`
 	SchedulerTickInterval int           `mapstructure:"scheduler_tick_interval"` // in millisecond
+	BaseRetryInterval     int           `mapstructure:"base_retry_interval"` // in second
 }
 
 type Config struct {

@@ -4,35 +4,40 @@ import (
 	"context"
 	"encoding/json"
 	"fluxqueue/internal/model"
-	"fmt"
 	"sync"
 	"time"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
 )
 
 type IRedisClient interface {
 	BRPop(ctx context.Context, timeout time.Duration, keys ...string) (string, error)
 	LPush(ctx context.Context, key string, value string) error
+	ZAdd(ctx context.Context, key string, score float64, member string) error
 }
 
 type WorkerPool struct {
-	redis      IRedisClient
-	registry   *HandlerRegistry
-	maxWorkers int
-	queueReady string
-	wg         *sync.WaitGroup
-	cancelFunc context.CancelFunc
+	redis             IRedisClient
+	registry          *HandlerRegistry
+	maxWorkers        int
+	queueReady        string
+	queueScheduled    string
+	wg                *sync.WaitGroup
+	cancelFunc        context.CancelFunc
+	baseRetryInterval int
 }
 
-func NewWorkerPool(maxWorkerPool int, r IRedisClient, registry *HandlerRegistry) WorkerPool {
+func NewWorkerPool(maxWorkerPool int, r IRedisClient, registry *HandlerRegistry, retryInv int) WorkerPool {
 	wg := &sync.WaitGroup{}
 	return WorkerPool{
-		redis:      r,
-		registry:   registry,
-		maxWorkers: maxWorkerPool,
-		wg:         wg,
-		queueReady: "queue:ready",
+		redis:             r,
+		registry:          registry,
+		maxWorkers:        maxWorkerPool,
+		wg:                wg,
+		queueReady:        "queue:ready",
+		queueScheduled:    "queue:scheduled",
+		baseRetryInterval: retryInv,
 	}
 }
 
@@ -50,16 +55,17 @@ func (w *WorkerPool) Start(ctx context.Context) {
 
 func (w *WorkerPool) workerLoop(ctx context.Context, workerId int) {
 	for {
-		fmt.Println("here", workerId)
 		select {
 		case <-ctx.Done():
 			w.wg.Done()
 			log.Info().Msgf("worker %d is stopping\n", workerId)
 			return
 		default:
-			taskStr, err := w.redis.BRPop(ctx, 0, w.queueReady)
+			taskStr, err := w.redis.BRPop(ctx, time.Second, w.queueReady)
 			if err != nil {
-				log.Error().Err(err).Msg("error fetching task from store")
+				if err != redis.Nil {
+					log.Error().Err(err).Msg("error fetching task from store")
+				}
 				continue
 			}
 
@@ -106,8 +112,15 @@ func (w *WorkerPool) processTask(ctx context.Context, workerId int, task *model.
 			// move to DLQ for further inspection
 			log.Info().Msg("add to DLQ")
 		} else {
-			// add to queue again with
-			log.Info().Msg("retry x seconds later")
+			delay := w.baseRetryInterval*1 ^ (task.Attempts - 1)
+			data, _ := json.Marshal(task)
+			now := time.Now().Add(time.Duration(delay) * time.Second).UTC()
+			err := w.redis.ZAdd(ctx, w.queueScheduled, float64(now.UnixMilli()), string(data))
+			if err != nil {
+				log.Error().Err(err).Msg("error add to scheduled")
+				return
+			}
+			log.Info().Msgf("retry task %s for %d seconds later", task.ID, delay)
 		}
 	}
 }

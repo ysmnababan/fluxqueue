@@ -76,6 +76,7 @@ func (h *handler) Schedule(c echo.Context) error {
 	}
 
 	now := time.Now().UTC()
+	runAt := req.RunAt.UTC()
 	task := &model.Task{
 		ID:             uuid.NewString(),
 		Type:           req.Type,
@@ -84,14 +85,15 @@ func (h *handler) Schedule(c echo.Context) error {
 		MaxRetries:     req.MaxRetries,
 		IdempotencyKey: req.IdempotencyKey,
 		CreatedAt:      now,
-		RunAt:          &req.RunAt,
+		RunAt:          &runAt,
 	}
 
 	data, err := json.Marshal(task)
 	if err != nil {
 		return response.Wrap(response.ErrInternalServerError, fmt.Errorf("error marshalling: %w", err))
 	}
-	if err := h.redis.LPush(c.Request().Context(), h.queueScheduled, string(data)); err != nil {
+
+	if err := h.redis.ZAdd(c.Request().Context(), h.queueScheduled, float64(runAt.UnixMilli()), string(data)); err != nil {
 		return response.Wrap(response.ErrInternalServerError, fmt.Errorf("error redis push: %w", err))
 	}
 
