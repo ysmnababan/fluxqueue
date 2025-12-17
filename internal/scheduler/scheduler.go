@@ -1,3 +1,4 @@
+// Package scheduler moves scheduled tasks from the ZSET to the ready queue when their execution time arrives.
 package scheduler
 
 import (

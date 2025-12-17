@@ -1,3 +1,4 @@
+// Package app initializes and bootstraps the application with all its components.
 package app
 
 import (

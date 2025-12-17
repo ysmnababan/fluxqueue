@@ -1,3 +1,4 @@
+// Package store provides Redis-backed queue operations for task management, scheduling, and DLQ handling.
 package store
 
 import (

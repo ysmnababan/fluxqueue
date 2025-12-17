@@ -1,3 +1,4 @@
+// Package service implements task handlers for email sending, report generation, and other background operations.
 package service
 
 import (

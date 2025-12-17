@@ -1,3 +1,4 @@
+// Package http sets up the Echo HTTP server with routes, middleware, and validators.
 package http
 
 import (

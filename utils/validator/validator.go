@@ -1,3 +1,4 @@
+// Package validator provides custom validation for request payloads using go-playground/validator.
 package validator
 
 import (

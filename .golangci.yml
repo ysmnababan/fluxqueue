@@ -46,6 +46,9 @@ issues:
     - path: cmd/.*
       linters:
         - revive
+    - path: main.go
+      linters:
+        - revive
 
     # Allow underscore variables in tests
     - path: _test\.go

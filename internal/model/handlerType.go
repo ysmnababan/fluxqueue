@@ -1,3 +1,4 @@
+// Package model defines core data structures for tasks, handlers, and queue items.
 package model
 
 import (

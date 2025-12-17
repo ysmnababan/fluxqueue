@@ -1,3 +1,4 @@
+// Package response provides standardized HTTP response structures and helpers.
 package response
 
 import (

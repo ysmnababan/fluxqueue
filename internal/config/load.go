@@ -1,3 +1,4 @@
+// Package config provides configuration loading from files and environment variables using viper.
 // internal/config/load.go
 package config
 

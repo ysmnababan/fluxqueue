@@ -1,3 +1,4 @@
+// Package handler provides HTTP request handlers for task enqueue and scheduling endpoints.
 package handler
 
 import (

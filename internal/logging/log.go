@@ -1,3 +1,4 @@
+// Package logging provides structured logging setup using zerolog with environment-aware configuration.
 package logging
 
 import (

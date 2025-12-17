@@ -1,3 +1,4 @@
+// Package worker implements a worker pool for processing tasks concurrently with retries and backoff.
 package worker
 
 import (
