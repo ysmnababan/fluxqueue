@@ -42,13 +42,17 @@ func (h *handler) Enqueue(c echo.Context) error {
 		return response.Wrap(response.ErrBadRequest, fmt.Errorf("error validate: %w", err))
 	}
 	now := time.Now().UTC()
+	idempKey := req.IdempotencyKey
+	if len(idempKey) == 0 {
+		idempKey = uuid.NewString()
+	}
 	task := &model.Task{
 		ID:             uuid.NewString(),
 		Type:           req.Type,
 		Payload:        req.Payload,
 		Attempts:       0,
 		MaxRetries:     req.MaxRetries,
-		IdempotencyKey: req.IdempotencyKey,
+		IdempotencyKey: idempKey,
 		CreatedAt:      now,
 	}
 

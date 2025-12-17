@@ -18,7 +18,6 @@ type App struct {
 	Cfg *config.Config
 	Log zerolog.Logger
 
-	// Tasks *service.TaskService
 	Redis      *store.RedisStore
 	httpServer *echo.Echo
 	Worker     worker.WorkerPool

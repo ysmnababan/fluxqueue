@@ -20,6 +20,9 @@ type IRedisClient interface {
 	BRPop(ctx context.Context, timeout time.Duration, keys ...string) (string, error)
 	LPush(ctx context.Context, key string, value string) error
 	ZAdd(ctx context.Context, key string, score float64, member string) error
+	SetNX(ctx context.Context, key string, val string, ttl time.Duration) (bool, error)
+	Set(ctx context.Context, key string, val string, ttl time.Duration) error
+	Del(ctx context.Context, keys ...string) (int64, error)
 }
 
 type WorkerPool struct {
@@ -29,6 +32,7 @@ type WorkerPool struct {
 	queueReady        string
 	queueScheduled    string
 	queueDead         string
+	idempKey          string
 	wg                *sync.WaitGroup
 	cancelFunc        context.CancelFunc
 	baseRetryInterval int
@@ -44,6 +48,7 @@ func NewWorkerPool(maxWorkerPool int, r IRedisClient, registry *HandlerRegistry,
 		queueReady:        "queue:ready",
 		queueScheduled:    "queue:scheduled",
 		queueDead:         "queue:dead",
+		idempKey:          "idempotent:",
 		baseRetryInterval: retryInv,
 	}
 }
@@ -100,6 +105,18 @@ func (w *WorkerPool) processTask(ctx context.Context, workerId int, task *model.
 		}
 	}()
 
+	// check idempotency key
+	key := w.idempKey + task.IdempotencyKey
+	ok, err := w.redis.SetNX(ctx, key, "processing", 10*time.Minute)
+	if err != nil {
+		log.Error().Err(err).Msg("error redis")
+		return
+	}
+	if !ok {
+		log.Info().Msgf("duplicate request with idempKey: %s", key)
+		return
+	}
+
 	// get the registry
 	handler, ok := w.registry.Get(task.Type)
 	if !ok {
@@ -109,11 +126,13 @@ func (w *WorkerPool) processTask(ctx context.Context, workerId int, task *model.
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	err := handler(ctx, task)
+	err = handler(ctx, task)
 	if err == nil {
+		_ = w.redis.Set(ctx, key, "done", time.Hour)
 		return
 	}
 
+	_, _ = w.redis.Del(ctx, key)
 	task.Attempts++
 	if task.Attempts > task.MaxRetries {
 		// move to DLQ for further inspection
@@ -137,8 +156,5 @@ func (w *WorkerPool) moveToDLQ(ctx context.Context, task *model.Task, err error)
 	task.FailedAt = &now
 	task.LastError = err.Error()
 	data, _ := json.Marshal(task)
-	err = w.redis.LPush(ctx, w.queueDead, string(data))
-	if err != nil {
-		log.Error().Err(err).Msg("error redis lpush")
-	}
+	_ = w.redis.LPush(ctx, w.queueDead, string(data))
 }

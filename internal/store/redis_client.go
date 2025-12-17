@@ -216,6 +216,11 @@ func (r *RedisStore) Get(ctx context.Context, key string) (string, error) {
 	return res, err
 }
 
+// Set sets key with TTL.
+func (r *RedisStore) Set(ctx context.Context, key string, val string, ttl time.Duration) error {
+	return r.client.Set(ctx, key, val, ttl).Err()
+}
+
 // Del deletes keys.
 func (r *RedisStore) Del(ctx context.Context, keys ...string) (int64, error) {
 	return r.client.Del(ctx, keys...).Result()
