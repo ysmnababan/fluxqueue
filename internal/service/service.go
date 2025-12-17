@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fluxqueue/internal/model"
+	"fmt"
+	"math/rand"
+	"slices"
 	"time"
 )
 
@@ -16,17 +19,33 @@ func NewTaskService() *Service {
 
 func (s *Service) SendEmail(ctx context.Context, t *model.Task) error {
 	// simulate sending an email
-	now := time.Now().UnixMilli()
 	_ = t
-	time.Sleep(200 * time.Millisecond)
-	if now%2 == 0 {
-		return errors.New("some error happen")
-	}
-	return nil
+	n := rand.Intn(3500) + 200 // in ms
+	fmt.Printf("wait for %d sec\n", n)
+	time.Sleep(time.Duration(n) * time.Millisecond)
+	return simulateError(10)
 }
 
 func (s Service) GenerateExcelReport(ctx context.Context, t *model.Task) error {
 	_ = t
-	time.Sleep(300 * time.Millisecond)
+	n := rand.Intn(2000) + 100 // in ms
+	time.Sleep(time.Duration(n) * time.Millisecond)
+	return simulateError(2)
+}
+
+// helper function to generate error based on percentage
+func simulateError(errorPercent int) error {
+	prob := []int{}
+	for range 100 {
+		val := rand.Intn(100)
+		if slices.Contains(prob, val) {
+			continue
+		}
+		prob = append(prob, val)
+	}
+
+	if slices.Contains(prob, errorPercent) {
+		return errors.New("some error")
+	}
 	return nil
 }
