@@ -80,6 +80,10 @@ func (h *handler) Schedule(c echo.Context) error {
 		return response.Wrap(response.ErrBadRequest, fmt.Errorf("error validate: %w", err))
 	}
 
+	idempKey := req.IdempotencyKey
+	if len(idempKey) == 0 {
+		idempKey = uuid.NewString()
+	}
 	now := time.Now().UTC()
 	runAt := req.RunAt.UTC()
 	task := &model.Task{
@@ -88,7 +92,7 @@ func (h *handler) Schedule(c echo.Context) error {
 		Payload:        req.Payload,
 		Attempts:       0,
 		MaxRetries:     req.MaxRetries,
-		IdempotencyKey: req.IdempotencyKey,
+		IdempotencyKey: idempKey,
 		CreatedAt:      now,
 		RunAt:          &runAt,
 	}
