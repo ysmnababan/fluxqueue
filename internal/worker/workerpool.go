@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fluxqueue/internal/model"
 	"math"
 	"sync"
@@ -11,6 +12,9 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
 )
+
+var errMaxRetriesExceeded = errors.New("max retries exceeded")
+var errHandlerNotRegistered = errors.New("handler not registered")
 
 type IRedisClient interface {
 	BRPop(ctx context.Context, timeout time.Duration, keys ...string) (string, error)
@@ -24,6 +28,7 @@ type WorkerPool struct {
 	maxWorkers        int
 	queueReady        string
 	queueScheduled    string
+	queueDead         string
 	wg                *sync.WaitGroup
 	cancelFunc        context.CancelFunc
 	baseRetryInterval int
@@ -38,6 +43,7 @@ func NewWorkerPool(maxWorkerPool int, r IRedisClient, registry *HandlerRegistry,
 		wg:                wg,
 		queueReady:        "queue:ready",
 		queueScheduled:    "queue:scheduled",
+		queueDead:         "queue:dead",
 		baseRetryInterval: retryInv,
 	}
 }
@@ -98,27 +104,41 @@ func (w *WorkerPool) processTask(ctx context.Context, workerId int, task *model.
 	handler, ok := w.registry.Get(task.Type)
 	if !ok {
 		log.Error().Msgf("no handler found for the task: %s", task.Type)
+		w.moveToDLQ(ctx, task, errHandlerNotRegistered)
 		return
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	err := handler(ctx, &model.Task{})
+	err := handler(ctx, task)
+	if err == nil {
+		return
+	}
+
 	task.Attempts++
-	if err != nil {
-		log.Error().Err(err).Msg("error handling task")
-		if task.Attempts > task.MaxRetries {
-			// move to DLQ for further inspection
-			log.Info().Msg("add to DLQ")
-		} else {
-			delaySec := w.baseRetryInterval * int(math.Pow(float64(2), float64(task.Attempts-1)))
-			data, _ := json.Marshal(task)
-			now := time.Now().Add(time.Duration(delaySec) * time.Second).UTC()
-			err := w.redis.ZAdd(ctx, w.queueScheduled, float64(now.UnixMilli()), string(data))
-			if err != nil {
-				log.Error().Err(err).Msg("error add to scheduled")
-				return
-			}
-			log.Info().Msgf("retry task %s for %d seconds later", task.ID, delaySec)
+	if task.Attempts > task.MaxRetries {
+		// move to DLQ for further inspection
+		log.Info().Msg("add to DLQ")
+		w.moveToDLQ(ctx, task, errMaxRetriesExceeded)
+	} else {
+		delaySec := w.baseRetryInterval * int(math.Pow(float64(2), float64(task.Attempts-1)))
+		data, _ := json.Marshal(task)
+		now := time.Now().Add(time.Duration(delaySec) * time.Second).UTC()
+		err := w.redis.ZAdd(ctx, w.queueScheduled, float64(now.UnixMilli()), string(data))
+		if err != nil {
+			log.Error().Err(err).Msg("error add to scheduled")
+			return
 		}
+		log.Info().Msgf("retry task %s for %d seconds later", task.ID, delaySec)
+	}
+}
+
+func (w *WorkerPool) moveToDLQ(ctx context.Context, task *model.Task, err error) {
+	now := time.Now().UTC()
+	task.FailedAt = &now
+	task.LastError = err.Error()
+	data, _ := json.Marshal(task)
+	err = w.redis.LPush(ctx, w.queueDead, string(data))
+	if err != nil {
+		log.Error().Err(err).Msg("error redis lpush")
 	}
 }

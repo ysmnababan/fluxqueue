@@ -17,4 +17,7 @@ type Task struct {
 	Meta           map[string]string `json:"meta,omitempty"`
 	Priority       int               `json:"priority,omitempty"`
 	Version        string            `json:"version,omitempty"`
+
+	FailedAt  *time.Time `json:"failed_at"`
+	LastError string     `json:"last_error"`
 }
