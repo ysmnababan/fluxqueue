@@ -14,9 +14,12 @@ func Recover(next echo.HandlerFunc) echo.HandlerFunc {
 				stackTrace := debug.Stack()
 				log.Error().Any("error", r).RawJSON("stackTrace", stackTrace).Send()
 
-				_ = c.JSON(500, map[string]any{
+				err := c.JSON(500, map[string]any{
 					"message": "something went wrong",
 				})
+				if err != nil {
+					log.Error().Err(err)
+				}
 			}
 		}(c)
 

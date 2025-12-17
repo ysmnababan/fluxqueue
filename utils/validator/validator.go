@@ -6,6 +6,7 @@ import (
 
 	valid "github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
+	"github.com/rs/zerolog/log"
 )
 
 type customValidator struct {
@@ -16,7 +17,10 @@ func NewCustomValidator() *customValidator {
 	newValidator := valid.New()
 
 	// add custom translation
-	_ = newValidator.RegisterValidation("is-date", validateIsDate)
+	err := newValidator.RegisterValidation("is-date", validateIsDate)
+	if err != nil {
+		log.Error().Err(err)
+	}
 
 	return &customValidator{
 		validator: newValidator,

@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fluxqueue/internal/model"
 	"fmt"
 	"time"
@@ -79,7 +80,10 @@ func (r *RedisStore) ZPopMin(ctx context.Context, key string) ([]model.ZItem, er
 
 	items := make([]model.ZItem, len(res))
 	for i, v := range res {
-		memberStr, _ := v.Member.(string)
+		memberStr, ok := v.Member.(string)
+		if !ok {
+			return nil, errors.New("field is not string")
+		}
 		items[i] = model.ZItem{
 			Member: memberStr,
 			Score:  v.Score,

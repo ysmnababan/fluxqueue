@@ -65,12 +65,12 @@ func (w *WorkerPool) Start(ctx context.Context) {
 	}
 }
 
-func (w *WorkerPool) workerLoop(ctx context.Context, workerId int) {
+func (w *WorkerPool) workerLoop(ctx context.Context, workerID int) {
 	for {
 		select {
 		case <-ctx.Done():
 			w.wg.Done()
-			log.Info().Msgf("worker %d is stopping\n", workerId)
+			log.Info().Msgf("worker %d is stopping\n", workerID)
 			return
 		default:
 			taskStr, err := w.redis.BRPop(ctx, time.Second, w.queueReady)
@@ -88,7 +88,7 @@ func (w *WorkerPool) workerLoop(ctx context.Context, workerId int) {
 				log.Error().Err(err).Msg("invalid task JSON")
 				continue
 			}
-			w.processTask(ctx, workerId, task)
+			w.processTask(ctx, workerID, task)
 		}
 	}
 }
@@ -98,10 +98,10 @@ func (w *WorkerPool) Stop() {
 	w.wg.Wait()
 }
 
-func (w *WorkerPool) processTask(ctx context.Context, workerId int, task *model.Task) {
+func (w *WorkerPool) processTask(ctx context.Context, workerID int, task *model.Task) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Error().Msgf("worker %d panic: %v", workerId, r)
+			log.Error().Msgf("worker %d panic: %v", workerID, r)
 		}
 	}()
 
@@ -128,11 +128,17 @@ func (w *WorkerPool) processTask(ctx context.Context, workerId int, task *model.
 	defer cancel()
 	err = handler(ctx, task)
 	if err == nil {
-		_ = w.redis.Set(ctx, key, "done", time.Hour)
+		err = w.redis.Set(ctx, key, "done", time.Hour)
+		if err != nil {
+			log.Error().Err(err)
+		}
 		return
 	}
 
-	_, _ = w.redis.Del(ctx, key)
+	_, err = w.redis.Del(ctx, key)
+	if err != nil {
+		log.Error().Err(err)
+	}
 	task.Attempts++
 	if task.Attempts > task.MaxRetries {
 		// move to DLQ for further inspection
@@ -140,9 +146,12 @@ func (w *WorkerPool) processTask(ctx context.Context, workerId int, task *model.
 		w.moveToDLQ(ctx, task, errMaxRetriesExceeded)
 	} else {
 		delaySec := w.baseRetryInterval * int(math.Pow(float64(2), float64(task.Attempts-1)))
-		data, _ := json.Marshal(task)
+		data, err := json.Marshal(task)
+		if err != nil {
+			log.Error().Err(err)
+		}
 		now := time.Now().Add(time.Duration(delaySec) * time.Second).UTC()
-		err := w.redis.ZAdd(ctx, w.queueScheduled, float64(now.UnixMilli()), string(data))
+		err = w.redis.ZAdd(ctx, w.queueScheduled, float64(now.UnixMilli()), string(data))
 		if err != nil {
 			log.Error().Err(err).Msg("error add to scheduled")
 			return
@@ -155,6 +164,12 @@ func (w *WorkerPool) moveToDLQ(ctx context.Context, task *model.Task, err error)
 	now := time.Now().UTC()
 	task.FailedAt = &now
 	task.LastError = err.Error()
-	data, _ := json.Marshal(task)
-	_ = w.redis.LPush(ctx, w.queueDead, string(data))
+	data, err := json.Marshal(task)
+	if err != nil {
+		log.Error().Err(err)
+	}
+	err = w.redis.LPush(ctx, w.queueDead, string(data))
+	if err != nil {
+		log.Error().Err(err)
+	}
 }

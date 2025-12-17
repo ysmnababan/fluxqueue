@@ -25,7 +25,7 @@ func CustomHTTPErrorHandler(err error, c echo.Context) {
 		if config.Global.Server.Env == "PRODUCTION" && apiErr.Code == http.StatusInternalServerError {
 			detail = nil
 		}
-		_ = c.JSON(apiErr.Code, response.APIResponse{
+		err = c.JSON(apiErr.Code, response.APIResponse{
 			Meta: response.Meta{
 				Success:    false,
 				Message:    apiErr.Message,
@@ -33,6 +33,9 @@ func CustomHTTPErrorHandler(err error, c echo.Context) {
 				Detail:     detail,
 			},
 		})
+		if err != nil {
+			logger.Error().Err(err)
+		}
 		return
 	}
 
@@ -40,7 +43,7 @@ func CustomHTTPErrorHandler(err error, c echo.Context) {
 		Err(err).
 		Str("path", c.Path()).
 		Msg("unhandled internal error")
-	_ = c.JSON(http.StatusInternalServerError,
+	err = c.JSON(http.StatusInternalServerError,
 		response.APIResponse{
 			Meta: response.Meta{
 				Success:    false,
@@ -48,4 +51,7 @@ func CustomHTTPErrorHandler(err error, c echo.Context) {
 				StatusCode: response.ErrInternalServerError.StatusCode,
 			},
 		})
+	if err != nil {
+		logger.Error().Err(err)
+	}
 }

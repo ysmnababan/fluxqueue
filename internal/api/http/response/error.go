@@ -31,7 +31,7 @@ var (
 	// --- 403 Forbidden ---
 	ErrForbidden              = &APIError{Code: http.StatusForbidden, StatusCode: 40301, Message: "Forbidden"}
 	ErrAccountNotInWhitelist  = &APIError{Code: http.StatusForbidden, StatusCode: 40302, Message: "User not in whitelist"}
-	ErrForbiddenApiPermission = &APIError{Code: http.StatusForbidden, StatusCode: 40304, Message: "You do not have access to this resource"}
+	ErrForbiddenAPIPermission = &APIError{Code: http.StatusForbidden, StatusCode: 40304, Message: "You do not have access to this resource"}
 
 	// --- 404 Not Found ---
 	ErrNotFound             = &APIError{Code: http.StatusNotFound, StatusCode: 40401, Message: "Data not found"}

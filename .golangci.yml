@@ -1,0 +1,53 @@
+run:
+  timeout: 3m
+  tests: true
+
+linters:
+  disable-all: true
+  enable:
+    # Core correctness
+    - govet
+    - staticcheck
+    - errcheck
+    - ineffassign
+    - gosimple
+
+    # Idiomatic Go, low noise
+    - revive
+
+linters-settings:
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment # noisy, micro-optimizations
+
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+
+  revive:
+    confidence: 0.8
+    rules:
+      - name: var-naming
+      - name: package-comments
+      - name: error-strings
+      - name: error-return
+      - name: indent-error-flow
+      - name: range
+      - name: empty-lines
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+  exclude-rules:
+    # Allow blank imports in main / tools
+    - path: cmd/.*
+      linters:
+        - revive
+
+    # Allow underscore variables in tests
+    - path: _test\.go
+      linters:
+        - revive

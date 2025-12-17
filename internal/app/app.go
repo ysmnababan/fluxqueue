@@ -34,7 +34,10 @@ func (a *App) Start(ctx context.Context) error {
 func (a *App) Shutdown(ctx context.Context) error {
 	a.Scheduler.Stop()
 	a.Worker.Stop()
-	a.Redis.Close()
+	err := a.Redis.Close()
+	if err != nil {
+		log.Error().Err(err)
+	}
 	return a.httpServer.Shutdown(ctx)
 }
 
