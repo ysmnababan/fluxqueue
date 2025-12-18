@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fluxqueue/internal/api/http/response"
+	metric "fluxqueue/internal/metrics"
 	"fluxqueue/internal/model"
 	"fmt"
 	"time"
@@ -35,6 +36,7 @@ func NewHandler(redis IRedisClient) *handler {
 }
 
 func (h *handler) Enqueue(c echo.Context) error {
+	metric.HTTPRequestsTotal.Inc()
 	req := new(EnqueueRequest)
 	if err := c.Bind(req); err != nil {
 		return response.Wrap(response.ErrBadRequest, fmt.Errorf("error bind: %w", err))
@@ -72,6 +74,7 @@ func (h *handler) Enqueue(c echo.Context) error {
 }
 
 func (h *handler) Schedule(c echo.Context) error {
+	metric.HTTPRequestsTotal.Inc()
 	req := new(ScheduleRequest)
 	if err := c.Bind(req); err != nil {
 		return response.Wrap(response.ErrBadRequest, fmt.Errorf("error bind: %w", err))

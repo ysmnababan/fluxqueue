@@ -13,6 +13,7 @@ import (
 	"net/http/pprof"
 
 	"github.com/labstack/echo/v4"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -46,6 +47,10 @@ func (a *App) Shutdown(ctx context.Context) error {
 
 func (a *App) registerRoute() {
 	h := handler.NewHandler(a.Redis)
+
+	// register prometheus handler
+	a.httpServer.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
+
 	registerPprof(a.httpServer)
 	api := a.httpServer.Group("/api")
 	v1 := api.Group("/v1")
