@@ -13,6 +13,28 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     restart: unless-stopped
+    networks:
+      - monitoring
+  
+  grafana:
+    image: grafana/grafana-enterprise
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+    - 'grafana-storage:/var/lib/grafana'
+    networks:
+      - monitoring
+    environment:
+      - GR_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
 
 volumes:
   prometheus-data:
+  grafana-storage: 
+
+networks:
+  monitoring:
+    driver: bridge
