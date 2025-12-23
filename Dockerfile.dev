@@ -1,0 +1,17 @@
+# ../Dockerfile
+FROM golang:1.25-alpine 
+
+# Required for air install & module downloads
+RUN apk add --no-cache git 
+
+WORKDIR /app
+
+RUN go install github.com/air-verse/air@latest
+
+COPY go.mod go.sum ./
+RUN go mod download 
+
+
+COPY . .
+
+CMD [ "air", "-c", ".air.toml" ]

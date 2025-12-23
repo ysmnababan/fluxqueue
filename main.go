@@ -17,6 +17,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load config file: %v", err)
 	}
+	log.Println("CONFIG: ", *cfg)
 	app, err := app.NewApp(cfg)
 	if err != nil {
 		log.Fatalf("new app: %v", err)

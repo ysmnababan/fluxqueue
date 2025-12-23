@@ -35,6 +35,9 @@ func init() {
 func TrackMetrics(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		path := c.Request().URL.Path
+		if path == "/metrics" || path == "/favicon.ico" {
+			return next(c)
+		}
 		status := c.Response().Status
 		RequestCount.WithLabelValues(path, http.StatusText(status)).Inc()
 		if status >= 400 {

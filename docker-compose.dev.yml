@@ -9,8 +9,8 @@ services:
   
   api:
     build:
-      context: ./..
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.dev
     container_name: api
     ports:
       - "8080:8080"
@@ -20,9 +20,12 @@ services:
       - monitoring
     # restart: unless-stopped
     environment:
-      - REDIS_ADDR=6379
+      - REDIS_ADDR=redis:6397
     volumes:
+      - .:/app
       - go-mod-cache:/go/pkg/mod
+      - ./configs:/app/configs
+    command: ["air", "-c", "/app/.air.toml"]
 
   prometheus:
     image: prom/prometheus:v2.53.5

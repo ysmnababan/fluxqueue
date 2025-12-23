@@ -1,0 +1,60 @@
+services:
+  redis:
+    image: redis:7.2
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - monitoring
+  
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: api
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis
+    networks:
+      - monitoring
+    environment:
+      - REDIS_ADDR=6379
+    volumes:
+      - go-mod-cache:/go/pkg/mod
+
+  prometheus:
+    image: prom/prometheus:v2.53.5
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    depends_on:
+      - api
+    networks:
+      - monitoring
+  
+  grafana:
+    image: grafana/grafana-enterprise
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+    - 'grafana-storage:/var/lib/grafana'
+    networks:
+      - monitoring
+    environment:
+      - GR_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus-data:
+  grafana-storage: 
+  go-mod-cache:
+
+networks:
+  monitoring:
+    driver: bridge
