@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	metric "fluxqueue/internal/metrics"
 	"fluxqueue/internal/model"
 	"math"
 	"sync"
@@ -121,6 +122,7 @@ func (w *WorkerPool) processTask(ctx context.Context, workerID int, task *model.
 	// get the registry
 	handler, ok := w.registry.Get(task.Type)
 	if !ok {
+		metric.TaskFailedTotal.WithLabelValues(task.Type).Inc()
 		log.Error().Msgf("no handler found for the task: %s", task.Type)
 		w.moveToDLQ(ctx, task, errHandlerNotRegistered)
 		return
@@ -129,6 +131,7 @@ func (w *WorkerPool) processTask(ctx context.Context, workerID int, task *model.
 	defer cancel()
 	err = handler(ctx, task)
 	if err == nil {
+		metric.TaskProcessedTotal.WithLabelValues(task.Type).Inc()
 		err = w.redis.Set(ctx, key, "done", time.Hour)
 		if err != nil {
 			log.Error().Err(err)
@@ -143,6 +146,7 @@ func (w *WorkerPool) processTask(ctx context.Context, workerID int, task *model.
 	task.Attempts++
 	if task.Attempts > task.MaxRetries {
 		// move to DLQ for further inspection
+		metric.TaskFailedTotal.WithLabelValues(task.Type).Inc()
 		log.Info().Msg("add to DLQ")
 		w.moveToDLQ(ctx, task, errMaxRetriesExceeded)
 	} else {
@@ -158,6 +162,7 @@ func (w *WorkerPool) processTask(ctx context.Context, workerID int, task *model.
 			return
 		}
 		log.Info().Msgf("retry task %s for %d seconds later", task.ID, delaySec)
+		metric.TaskRetriedTotal.WithLabelValues(task.Type).Inc()
 	}
 }
 

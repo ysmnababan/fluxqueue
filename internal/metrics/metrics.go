@@ -6,13 +6,12 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/prometheus/client_golang/prometheus"
-	// "github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
 	RequestCount = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "myapp_requests_total",
+			Name: "app_requests_total",
 			Help: "Total number of requests processed by the MyApp web server.",
 		},
 		[]string{"path", "status"},
@@ -20,16 +19,40 @@ var (
 
 	ErrorCount = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "myapp_requests_errors_total",
+			Name: "app_requests_errors_total",
 			Help: "Total number of error requests processed by the MyApp web server.",
 		},
 		[]string{"path", "status"},
+	)
+	TaskProcessedTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "tasks_processed_total",
+			Help: "Total number of successfully processed tasks",
+		},
+		[]string{"type"},
+	)
+	TaskFailedTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "tasks_failed_total",
+			Help: "Total number of permanently failed tasks",
+		},
+		[]string{"type"},
+	)
+	TaskRetriedTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "tasks_retried_total",
+			Help: "Total number of task retry attempts",
+		},
+		[]string{"type"},
 	)
 )
 
 func init() {
 	prometheus.MustRegister(RequestCount)
 	prometheus.MustRegister(ErrorCount)
+	prometheus.MustRegister(TaskProcessedTotal)
+	prometheus.MustRegister(TaskFailedTotal)
+	prometheus.MustRegister(TaskRetriedTotal)
 }
 
 func TrackMetrics(next echo.HandlerFunc) echo.HandlerFunc {
