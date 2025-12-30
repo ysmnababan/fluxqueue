@@ -101,10 +101,17 @@ func (w *WorkerPool) Stop() {
 }
 
 func (w *WorkerPool) processTask(ctx context.Context, workerID int, task *model.Task) {
+	start := time.Now()
 	defer func() {
 		if r := recover(); r != nil {
 			log.Error().Msgf("worker %d panic: %v", workerID, r)
 		}
+	}()
+
+	defer func() {
+		elapsed := time.Since(start).Seconds()
+		metric.TaskProcessingDuration.
+			WithLabelValues(task.Type).Observe(float64(elapsed))
 	}()
 
 	// check idempotency key

@@ -45,6 +45,26 @@ var (
 		},
 		[]string{"type"},
 	)
+	TaskProcessingDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name: "task_processing_duration_seconds",
+			Help: "Time spent processing tasks",
+			Buckets: []float64{
+				0.05, // 50ms
+				0.1,
+				0.2,
+				0.3,
+				0.5,
+				0.75,
+				1,
+				1.5,
+				2,
+				3,
+				5,
+			},
+		},
+		[]string{"type"},
+	)
 )
 
 func init() {
@@ -53,6 +73,7 @@ func init() {
 	prometheus.MustRegister(TaskProcessedTotal)
 	prometheus.MustRegister(TaskFailedTotal)
 	prometheus.MustRegister(TaskRetriedTotal)
+	prometheus.MustRegister(TaskProcessingDuration)
 }
 
 func TrackMetrics(next echo.HandlerFunc) echo.HandlerFunc {
