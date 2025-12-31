@@ -63,18 +63,20 @@ func NewWorkerPool(maxWorkerPool int, r IRedisClient, registry *HandlerRegistry,
 }
 
 func (w *WorkerPool) Start(ctx context.Context) {
-	newCtx, cancel := context.WithCancel(ctx)
+	controlCtx, cancel := context.WithCancel(ctx)
 	w.cancelFunc = cancel
+	taskCtx := context.Background()
 
 	w.wg.Add(w.maxWorkers)
-	w.wg.Add(w.redisConsumer)
-	log.Info().Msgf("[WORKER POOL STARTED]: %d instances", w.maxWorkers)
+	w.consumerWg.Add(w.redisConsumer)
+	log.Info().Msgf("[CONSUMER POOL STARTED]: %d instances", w.redisConsumer)
 	for range w.redisConsumer {
-		go w.consumeTaskFromStore(newCtx)
+		go w.consumeTaskFromStore(controlCtx)
 	}
+	log.Info().Msgf("[WORKER POOL STARTED]: %d instances", w.maxWorkers)
 	for i := range w.maxWorkers {
 		idx := i
-		go w.workerLoop(newCtx, idx)
+		go w.workerLoop(taskCtx, idx)
 	}
 }
 
@@ -82,7 +84,7 @@ func (w *WorkerPool) consumeTaskFromStore(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			w.wg.Done()
+			w.consumerWg.Done()
 			log.Info().Msg("close consumer")
 			return
 		default:
@@ -107,50 +109,22 @@ func (w *WorkerPool) consumeTaskFromStore(ctx context.Context) {
 }
 
 func (w *WorkerPool) workerLoop(ctx context.Context, workerID int) {
-	defer w.wg.Done()
-	for {
-		select {
-		case <-ctx.Done():
-			log.Info().Msgf("worker %d stopping", workerID)
-			return
-		case task, ok := <-w.taskChan:
-			if !ok {
-				return
-			}
-			w.processTask(ctx, workerID, task)
-		}
-	}
-	// for {
-	// 	select {
-	// 	case <-ctx.Done():
-	// 		w.wg.Done()
-	// 		log.Info().Msgf("worker %d is stopping\n", workerID)
-	// 		return
-	// 	default:
-	// 		taskStr, err := w.redis.BRPop(ctx, time.Second, w.queueReady)
-	// 		if err != nil {
-	// 			if err != redis.Nil {
-	// 				log.Error().Err(err).Msg("error fetching task from store")
-	// 			}
-	// 			continue
-	// 		}
+	defer func() {
+		log.Info().Msgf("worker %d stopping", workerID)
+		w.wg.Done()
+	}()
 
-	// 		// unmarshall the Task
-	// 		task := &model.Task{}
-	// 		err = json.Unmarshal([]byte(taskStr), task)
-	// 		if err != nil {
-	// 			log.Error().Err(err).Msg("invalid task JSON")
-	// 			continue
-	// 		}
-	// 		w.processTask(ctx, workerID, task)
-	// 	}
-	// }
+	for task := range w.taskChan {
+		w.processTask(ctx, workerID, task)
+	}
 }
 
 func (w *WorkerPool) Stop() {
+	log.Info().Msg("Worker is terminating ...")
 	w.cancelFunc()
-	w.wg.Wait()
+	w.consumerWg.Wait()
 	close(w.taskChan)
+	w.wg.Wait()
 }
 
 func (w *WorkerPool) processTask(ctx context.Context, workerID int, task *model.Task) {
