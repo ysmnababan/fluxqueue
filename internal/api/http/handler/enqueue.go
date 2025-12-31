@@ -14,7 +14,6 @@ import (
 )
 
 type IRedisClient interface {
-	BRPop(ctx context.Context, timeout time.Duration, keys ...string) (string, error)
 	LPush(ctx context.Context, key string, value string) error
 	ZAdd(ctx context.Context, key string, score float64, member string) error
 }

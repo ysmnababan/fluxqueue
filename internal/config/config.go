@@ -11,6 +11,7 @@ type RedisConfig struct {
 	Password string `mapstructure:"password"`
 	DB       int    `mapstructure:"db"`
 	// add other redis-related settings if needed
+	Worker int `mapstructure:"worker"`
 }
 
 type ServerConfig struct {

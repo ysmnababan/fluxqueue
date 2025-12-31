@@ -20,11 +20,18 @@ func NewApp(cfg *config.Config) (*App, error) {
 		cfg.Server.ServiceName,
 		cfg.Server.Version)
 
-	redis := store.NewRedisClient(
+	producerRedis := store.NewProducerRedis(
 		cfg.Redis.Addr,
 		cfg.Redis.Password,
 		cfg.Redis.DB,
 	)
+	consumerRedis := store.NewConsumerRedis(
+		cfg.Redis.Addr,
+		cfg.Redis.Password,
+		cfg.Redis.DB,
+		cfg.Redis.Worker,
+	)
+
 	handlerRegistry := worker.NewRegistry()
 	svc := service.NewTaskService()
 	handlerRegistry.Register("email.send", svc.SendEmail)
@@ -32,12 +39,12 @@ func NewApp(cfg *config.Config) (*App, error) {
 
 	worker := worker.NewWorkerPool(
 		cfg.Worker.WorkerCount,
-		redis,
+		consumerRedis,
 		handlerRegistry,
 		cfg.Worker.BaseRetryInterval)
 
 	scheduler := scheduler.NewScheduler(
-		redis,
+		consumerRedis,
 		time.Millisecond*time.Duration(cfg.Worker.SchedulerTickInterval))
 
 	e := http.InitServer()
@@ -47,7 +54,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 		httpServer: e,
 		Worker:     worker,
 		Scheduler:  scheduler,
-		Redis:      redis,
+		Redis:      producerRedis,
 	}
 	app.registerRoute()
 	return app, nil

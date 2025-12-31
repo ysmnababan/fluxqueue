@@ -10,10 +10,6 @@ import (
 )
 
 type IRedisClient interface {
-	// BRPop(ctx context.Context, timeout time.Duration, keys ...string) (string, error)
-	// LPush(ctx context.Context, key string, value string) error
-	// ZRangeByScore(ctx context.Context, key string, min, max string) ([]string, error)
-	// ZPopMin(ctx context.Context, key string) ([]model.ZItem, error)
 	MoveScheduledToReady(ctx context.Context, zsetKey, readyListKey, maxScore string) (int64, error)
 }
 

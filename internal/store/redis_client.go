@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fluxqueue/internal/model"
 	"fmt"
+	"runtime"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -16,13 +17,37 @@ type RedisStore struct {
 	client *redis.Client
 }
 
-// NewRedisClient creates a new RedisStore.
-func NewRedisClient(addr, pwd string, db int) *RedisStore {
+// NewProducerRedis creates a new RedisStore.
+func NewProducerRedis(addr, pwd string, db int) *RedisStore {
+	cores := runtime.GOMAXPROCS(0)
 	rdb := redis.NewClient(
 		&redis.Options{
-			Addr:     addr,
-			Password: pwd,
-			DB:       db,
+			Addr:         addr,
+			Password:     pwd,
+			DB:           db,
+			PoolSize:     cores * 2,
+			MinIdleConns: cores,
+			PoolTimeout:  2 * time.Second,
+			DialTimeout:  2 * time.Second,
+			ReadTimeout:  2 * time.Second,
+			WriteTimeout: 2 * time.Second,
+		},
+	)
+	return &RedisStore{
+		client: rdb,
+	}
+}
+
+// NewConsumerRedis creates a new RedisStore.
+func NewConsumerRedis(addr, pwd string, db, consumers int) *RedisStore {
+	rdb := redis.NewClient(
+		&redis.Options{
+			Addr:         addr,
+			Password:     pwd,
+			DB:           db,
+			PoolSize:     consumers,
+			MinIdleConns: 0,
+			PoolTimeout:  time.Second,
 		},
 	)
 	return &RedisStore{
