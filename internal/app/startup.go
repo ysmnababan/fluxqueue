@@ -41,7 +41,8 @@ func NewApp(cfg *config.Config) (*App, error) {
 		cfg.Worker.WorkerCount,
 		consumerRedis,
 		handlerRegistry,
-		cfg.Worker.BaseRetryInterval)
+		cfg.Worker.BaseRetryInterval,
+		cfg.Redis.Worker)
 
 	scheduler := scheduler.NewScheduler(
 		consumerRedis,

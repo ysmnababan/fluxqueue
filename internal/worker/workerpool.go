@@ -30,28 +30,35 @@ type IRedisClient interface {
 type WorkerPool struct {
 	redis             IRedisClient
 	registry          *HandlerRegistry
+	redisConsumer     int
 	maxWorkers        int
 	queueReady        string
 	queueScheduled    string
 	queueDead         string
 	idempKey          string
 	wg                *sync.WaitGroup
+	consumerWg        *sync.WaitGroup
 	cancelFunc        context.CancelFunc
 	baseRetryInterval int
+	taskChan          chan *model.Task
 }
 
-func NewWorkerPool(maxWorkerPool int, r IRedisClient, registry *HandlerRegistry, retryInv int) WorkerPool {
+func NewWorkerPool(maxWorkerPool int, r IRedisClient, registry *HandlerRegistry, retryInv, consumer int) WorkerPool {
 	wg := &sync.WaitGroup{}
+	consumerWg := &sync.WaitGroup{}
 	return WorkerPool{
 		redis:             r,
 		registry:          registry,
 		maxWorkers:        maxWorkerPool,
 		wg:                wg,
+		consumerWg:        consumerWg,
 		queueReady:        "queue:ready",
 		queueScheduled:    "queue:scheduled",
 		queueDead:         "queue:dead",
 		idempKey:          "idempotent:",
 		baseRetryInterval: retryInv,
+		redisConsumer:     consumer,
+		taskChan:          make(chan *model.Task, 2*maxWorkerPool),
 	}
 }
 
@@ -60,19 +67,23 @@ func (w *WorkerPool) Start(ctx context.Context) {
 	w.cancelFunc = cancel
 
 	w.wg.Add(w.maxWorkers)
+	w.wg.Add(w.redisConsumer)
 	log.Info().Msgf("[WORKER POOL STARTED]: %d instances", w.maxWorkers)
+	for range w.redisConsumer {
+		go w.consumeTaskFromStore(newCtx)
+	}
 	for i := range w.maxWorkers {
 		idx := i
 		go w.workerLoop(newCtx, idx)
 	}
 }
 
-func (w *WorkerPool) workerLoop(ctx context.Context, workerID int) {
+func (w *WorkerPool) consumeTaskFromStore(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
 			w.wg.Done()
-			log.Info().Msgf("worker %d is stopping\n", workerID)
+			log.Info().Msg("close consumer")
 			return
 		default:
 			taskStr, err := w.redis.BRPop(ctx, time.Second, w.queueReady)
@@ -83,21 +94,63 @@ func (w *WorkerPool) workerLoop(ctx context.Context, workerID int) {
 				continue
 			}
 
-			// unmarshall the Task
 			task := &model.Task{}
 			err = json.Unmarshal([]byte(taskStr), task)
 			if err != nil {
-				log.Error().Err(err).Msg("invalid task JSON")
+				log.Error().Err(err).Msg("error marshalling")
 				continue
+			}
+
+			w.taskChan <- task
+		}
+	}
+}
+
+func (w *WorkerPool) workerLoop(ctx context.Context, workerID int) {
+	defer w.wg.Done()
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info().Msgf("worker %d stopping", workerID)
+			return
+		case task, ok := <-w.taskChan:
+			if !ok {
+				return
 			}
 			w.processTask(ctx, workerID, task)
 		}
 	}
+	// for {
+	// 	select {
+	// 	case <-ctx.Done():
+	// 		w.wg.Done()
+	// 		log.Info().Msgf("worker %d is stopping\n", workerID)
+	// 		return
+	// 	default:
+	// 		taskStr, err := w.redis.BRPop(ctx, time.Second, w.queueReady)
+	// 		if err != nil {
+	// 			if err != redis.Nil {
+	// 				log.Error().Err(err).Msg("error fetching task from store")
+	// 			}
+	// 			continue
+	// 		}
+
+	// 		// unmarshall the Task
+	// 		task := &model.Task{}
+	// 		err = json.Unmarshal([]byte(taskStr), task)
+	// 		if err != nil {
+	// 			log.Error().Err(err).Msg("invalid task JSON")
+	// 			continue
+	// 		}
+	// 		w.processTask(ctx, workerID, task)
+	// 	}
+	// }
 }
 
 func (w *WorkerPool) Stop() {
 	w.cancelFunc()
 	w.wg.Wait()
+	close(w.taskChan)
 }
 
 func (w *WorkerPool) processTask(ctx context.Context, workerID int, task *model.Task) {
