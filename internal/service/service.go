@@ -7,15 +7,29 @@ import (
 	"fluxqueue/internal/model"
 	"fmt"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"time"
+
+	"github.com/rs/zerolog/log"
+	"github.com/xuri/excelize/v2"
 )
 
-type Service struct {
+type IStorage interface {
+	PutObject(ctx context.Context, filepath, bucketname, objectName, contentType string) error
+	CreateBucketWithCheck(ctx context.Context, bucketName string) error
 }
 
-func NewTaskService() *Service {
-	return &Service{}
+type Service struct {
+	storage IStorage
+}
+
+func NewTaskService(storage IStorage) *Service {
+	return &Service{
+		storage: storage,
+	}
 }
 
 func (s *Service) SendEmail(ctx context.Context, t *model.Task) error {
@@ -29,9 +43,54 @@ func (s *Service) SendEmail(ctx context.Context, t *model.Task) error {
 
 func (s Service) GenerateExcelReport(ctx context.Context, t *model.Task) error {
 	_ = t
-	n := rand.Intn(2000) + 100 // in ms
-	time.Sleep(time.Duration(n) * time.Millisecond)
-	return simulateError(2)
+	f := excelize.NewFile()
+	sheet := f.GetSheetName(0)
+	var err error
+	err = f.SetCellValue(sheet, "A1", "Task ID")
+	if err != nil {
+		return err
+	}
+	err = f.SetCellValue(sheet, "B1", t.ID)
+	if err != nil {
+		return err
+	}
+	err = f.SetCellValue(sheet, "A1", "Generated At")
+	if err != nil {
+		return err
+	}
+	err = f.SetCellValue(sheet, "B1", time.Now().Format(time.RFC3339))
+	if err != nil {
+		return err
+	}
+	tmpDir := os.TempDir()
+	// filepath := filepath.Dir(tmpDir, fmt.Sprintf("report-%s.xlsx",t.ID))
+	filepath := filepath.Join(tmpDir, fmt.Sprintf("report-%s.xlsx", t.ID))
+	// filepath := filepath.Dir(tmpDir)
+	if err = f.SaveAs(filepath); err != nil {
+		return err
+	}
+
+	defer func() {
+		err = os.Remove(filepath)
+		if err != nil {
+			log.Err(err)
+		}
+	}()
+	bucket := "reports"
+	err = s.storage.CreateBucketWithCheck(ctx, bucket)
+	if err != nil && !strings.Contains(err.Error(), "already exists") {
+		return err
+	}
+
+	err = s.storage.PutObject(ctx,
+		filepath,
+		bucket,
+		fmt.Sprintf("report-%s.xlsx", t.ID),
+		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // helper function to generate error based on percentage

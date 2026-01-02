@@ -173,8 +173,8 @@ func (w *WorkerPool) processTask(ctx context.Context, workerID int, task *model.
 		return
 	}
 
-	_, err = w.redis.Del(ctx, key)
-	if err != nil {
+	_, errRedis := w.redis.Del(ctx, key)
+	if errRedis != nil {
 		log.Error().Err(err)
 	}
 	task.Attempts++
@@ -182,7 +182,7 @@ func (w *WorkerPool) processTask(ctx context.Context, workerID int, task *model.
 		// move to DLQ for further inspection
 		metric.TaskFailedTotal.WithLabelValues(task.Type).Inc()
 		log.Info().Msg("add to DLQ")
-		w.moveToDLQ(ctx, task, errMaxRetriesExceeded)
+		w.moveToDLQ(ctx, task, err)
 	} else {
 		delaySec := w.baseRetryInterval * int(math.Pow(float64(2), float64(task.Attempts-1)))
 		data, err := json.Marshal(task)
