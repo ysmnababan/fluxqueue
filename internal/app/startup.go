@@ -7,6 +7,7 @@ import (
 	"fluxqueue/internal/logging"
 	"fluxqueue/internal/scheduler"
 	"fluxqueue/internal/service"
+	"fluxqueue/internal/storage"
 	"fluxqueue/internal/store"
 	"fluxqueue/internal/worker"
 	"time"
@@ -31,9 +32,12 @@ func NewApp(cfg *config.Config) (*App, error) {
 		cfg.Redis.DB,
 		cfg.Redis.Worker,
 	)
-
+	storage := storage.NewStorage(cfg.Storage.Endpoint,
+		cfg.Storage.AccessKey,
+		cfg.Storage.SecretAccessKey,
+		false)
 	handlerRegistry := worker.NewRegistry()
-	svc := service.NewTaskService()
+	svc := service.NewTaskService(storage)
 	handlerRegistry.Register("email.send", svc.SendEmail)
 	handlerRegistry.Register("report.generate", svc.GenerateExcelReport)
 

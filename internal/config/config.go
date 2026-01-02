@@ -35,5 +35,11 @@ type Config struct {
 	Server   ServerConfig `mapstructure:"server"`
 	Worker   WorkerConfig `mapstructure:"worker"`
 	LogLevel string       `mapstructure:"log_level"`
-	// add more config sections / fields as needed
+	Storage StorageConfig `mapstructure:"storage"`
+}
+
+type StorageConfig struct{
+	Endpoint string `mapstructure:"endpoint"` 
+	AccessKey string `mapstructure:"access_key"`
+	SecretAccessKey string `mapstructure:"secret_access_key"`
 }
