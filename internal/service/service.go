@@ -22,23 +22,42 @@ type IStorage interface {
 	CreateBucketWithCheck(ctx context.Context, bucketName string) error
 }
 
+type IEmail interface {
+	SendEmail(to, subject, body string) error
+}
 type Service struct {
 	storage IStorage
+	email   IEmail
 }
 
-func NewTaskService(storage IStorage) *Service {
+func NewTaskService(storage IStorage, email IEmail) *Service {
 	return &Service{
 		storage: storage,
+		email:   email,
 	}
 }
 
 func (s *Service) SendEmail(ctx context.Context, t *model.Task) error {
 	// simulate sending an email
-	_ = t
-	n := rand.Intn(3500) + 200 // in ms
-	fmt.Printf("wait for %d sec\n", n)
-	time.Sleep(time.Duration(n) * time.Millisecond)
-	return simulateError(10)
+	// payload:= &struct {
+	// 	to string
+	// 	body string
+	// 	subject string
+	// }{}
+	body, ok := (t.Payload["body"]).(string)
+	if !ok {
+		return errors.New("body is not string ")
+	}
+	to, ok := (t.Payload["to"]).(string)
+	if !ok {
+		return errors.New("target is not string ")
+	}
+	subject, ok := t.Payload["subject"].(string)
+	if !ok {
+		return errors.New("subject is not string ")
+	}
+	err := s.email.SendEmail(to, subject, body)
+	return err
 }
 
 func (s Service) GenerateExcelReport(ctx context.Context, t *model.Task) error {

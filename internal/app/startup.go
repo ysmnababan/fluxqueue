@@ -5,6 +5,7 @@ import (
 	"fluxqueue/internal/api/http"
 	"fluxqueue/internal/config"
 	"fluxqueue/internal/logging"
+	"fluxqueue/internal/mail"
 	"fluxqueue/internal/scheduler"
 	"fluxqueue/internal/service"
 	"fluxqueue/internal/storage"
@@ -36,8 +37,11 @@ func NewApp(cfg *config.Config) (*App, error) {
 		cfg.Storage.AccessKey,
 		cfg.Storage.SecretAccessKey,
 		false)
+	emailService := mail.NewEmailService(cfg.Email)
+
 	handlerRegistry := worker.NewRegistry()
-	svc := service.NewTaskService(storage)
+
+	svc := service.NewTaskService(storage, emailService)
 	handlerRegistry.Register("email.send", svc.SendEmail)
 	handlerRegistry.Register("report.generate", svc.GenerateExcelReport)
 
