@@ -25,7 +25,7 @@ export default function () {
 
     const payload = JSON.stringify({
         type: "email.send",
-        payload: { to: "bob@example.com", body: "Hi Bob" },
+        payload: { to:"bob@example.com",body:"<h1>Hello!</h1><p>Thanks for signing up.</p>", subject:"Welcome aboard!!!!"},
         max_retries: 3,
     });
 

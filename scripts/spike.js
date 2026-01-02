@@ -20,7 +20,7 @@ export default function () {
         'http://localhost:8080/api/v1/enqueue',
         JSON.stringify({
             type: 'email.send',
-            payload: { to: 'bob@example.com', body: 'Hi Bob' },
+            payload: { to:"bob@example.com",body:"<h1>Hello!</h1><p>Thanks for signing up.</p>", subject:"Welcome aboard!!!!"},
             max_retries: 3,
         }),
         { headers: { 'Content-Type': 'application/json' } }
