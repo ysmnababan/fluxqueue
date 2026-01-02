@@ -31,15 +31,25 @@ type WorkerConfig struct {
 }
 
 type Config struct {
-	Redis    RedisConfig  `mapstructure:"redis"`
-	Server   ServerConfig `mapstructure:"server"`
-	Worker   WorkerConfig `mapstructure:"worker"`
-	LogLevel string       `mapstructure:"log_level"`
-	Storage StorageConfig `mapstructure:"storage"`
+	Redis    RedisConfig   `mapstructure:"redis"`
+	Server   ServerConfig  `mapstructure:"server"`
+	Worker   WorkerConfig  `mapstructure:"worker"`
+	LogLevel string        `mapstructure:"log_level"`
+	Storage  StorageConfig `mapstructure:"storage"`
+	Email    EmailConfig   `mapstructure:"email"`
 }
 
-type StorageConfig struct{
-	Endpoint string `mapstructure:"endpoint"` 
-	AccessKey string `mapstructure:"access_key"`
+type StorageConfig struct {
+	Endpoint        string `mapstructure:"endpoint"`
+	AccessKey       string `mapstructure:"access_key"`
 	SecretAccessKey string `mapstructure:"secret_access_key"`
+}
+
+type EmailConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
+	From     string `mapstructure:"from"`
+	UseTLS   bool   `mapstructure:"usetls"`
 }
