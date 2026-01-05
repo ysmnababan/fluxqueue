@@ -1,33 +1,20 @@
-// Package app initializes and bootstraps the application with all its components.
-package app
+// Package processor initializes and bootstraps the application with all its components.
+package processor
 
 import (
-	"fluxqueue/internal/api/http"
+	"time"
+
 	"fluxqueue/internal/config"
-	"fluxqueue/internal/logging"
 	"fluxqueue/internal/mail"
 	"fluxqueue/internal/scheduler"
 	"fluxqueue/internal/service"
 	"fluxqueue/internal/storage"
 	"fluxqueue/internal/store"
 	"fluxqueue/internal/worker"
-	"time"
-
-	"github.com/rs/zerolog"
 )
 
-func NewApp(cfg *config.Config) (*App, error) {
-	logger := logging.InitLogger(cfg.Server.Env,
-		zerolog.InfoLevel,
-		cfg.Server.ServiceName,
-		cfg.Server.Version)
-
-	producerRedis := store.NewProducerRedis(
-		cfg.Redis.Addr,
-		cfg.Redis.Password,
-		cfg.Redis.DB,
-	)
-	consumerRedis := store.NewConsumerRedis(
+func NewProcessor(cfg *config.Config) (*Processor, error) {
+	store := store.NewConsumerRedis(
 		cfg.Redis.Addr,
 		cfg.Redis.Password,
 		cfg.Redis.DB,
@@ -47,24 +34,20 @@ func NewApp(cfg *config.Config) (*App, error) {
 
 	worker := worker.NewWorkerPool(
 		cfg.Worker.WorkerCount,
-		consumerRedis,
+		store,
 		handlerRegistry,
 		cfg.Worker.BaseRetryInterval,
 		cfg.Redis.Worker)
 
 	scheduler := scheduler.NewScheduler(
-		consumerRedis,
+		store,
 		time.Millisecond*time.Duration(cfg.Worker.SchedulerTickInterval))
 
-	e := http.InitServer()
-	app := &App{
-		Cfg:        cfg,
-		Log:        logger,
-		httpServer: e,
-		Worker:     worker,
-		Scheduler:  scheduler,
-		Redis:      producerRedis,
+	app := &Processor{
+		Cfg:       cfg,
+		Worker:    worker,
+		Scheduler: scheduler,
+		Redis:     store,
 	}
-	app.registerRoute()
 	return app, nil
 }
