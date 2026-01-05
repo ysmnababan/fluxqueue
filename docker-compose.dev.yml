@@ -1,5 +1,6 @@
 services:
   mailhog:
+    container_name: mailhog
     image: mailhog/mailhog:v1.0.1
     ports:
       - 1025:1025
@@ -25,7 +26,7 @@ services:
       - "6379:6379"
     networks:
       - monitoring
-  
+
   api:
     build:
       context: .
@@ -46,7 +47,27 @@ services:
       - .:/app
       - go-mod-cache:/go/pkg/mod
       - ./configs:/app/configs
-    command: ["air", "-c", "/app/.air.toml"]
+    command: ["sh", "-c", "air -c /app/.air.toml -- -mode=api"]
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: worker
+    depends_on:
+      - redis
+      - minio
+    networks:
+      - monitoring
+    environment:
+      - REDIS_ADDR=redis:6379
+      - MODE=worker
+    volumes:
+      - .:/app
+      - go-mod-cache:/go/pkg/mod
+      - ./configs:/app/configs
+    # Option B (if you want hot reload for worker too): uncomment the next line and comment the go-run above
+    command: ["sh", "-c", "air -c /app/.air.toml -- -mode=worker"]
 
   prometheus:
     image: prom/prometheus:v2.53.5
@@ -61,7 +82,7 @@ services:
       - api
     networks:
       - monitoring
-  
+
   grafana:
     image: grafana/grafana-enterprise
     container_name: grafana
@@ -69,7 +90,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-    - 'grafana-storage:/var/lib/grafana'
+      - "grafana-storage:/var/lib/grafana"
     networks:
       - monitoring
     environment:
@@ -79,9 +100,10 @@ services:
 
 volumes:
   prometheus-data:
-  grafana-storage: 
+  grafana-storage:
   go-mod-cache:
 
 networks:
   monitoring:
     driver: bridge
+
