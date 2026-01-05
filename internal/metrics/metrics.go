@@ -8,6 +8,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// TODO
+// worker may have multiple instances,
+// handle the metrics endpoint for sending by using 'push',
+
 var (
 	RequestCount = prometheus.NewCounterVec(
 		prometheus.CounterOpts{

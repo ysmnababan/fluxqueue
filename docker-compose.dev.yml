@@ -42,7 +42,7 @@ services:
       - monitoring
     # restart: unless-stopped
     environment:
-      - REDIS_ADDR=redis:6397
+      - REDIS_ADDR=redis:6379
     volumes:
       - .:/app
       - go-mod-cache:/go/pkg/mod
@@ -53,9 +53,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    container_name: worker
-    ports:
-      - "8090:8090"
     depends_on:
       - redis
       - minio
@@ -70,6 +67,8 @@ services:
       - ./configs:/app/configs
     # Option B (if you want hot reload for worker too): uncomment the next line and comment the go-run above
     command: ["sh", "-c", "air -c /app/.air.toml -- -mode=worker"]
+    expose:
+      - "8090"
 
   prometheus:
     image: prom/prometheus:v2.53.5
