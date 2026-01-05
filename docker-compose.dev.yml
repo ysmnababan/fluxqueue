@@ -54,6 +54,8 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     container_name: worker
+    ports:
+      - "8090:8090"
     depends_on:
       - redis
       - minio
@@ -106,4 +108,3 @@ volumes:
 networks:
   monitoring:
     driver: bridge
-

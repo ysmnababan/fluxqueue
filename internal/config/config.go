@@ -28,6 +28,7 @@ type WorkerConfig struct {
 	MaxRetries            int           `mapstructure:"max_retries"`
 	SchedulerTickInterval int           `mapstructure:"scheduler_tick_interval"` // in millisecond
 	BaseRetryInterval     int           `mapstructure:"base_retry_interval"`     // in second
+	Port                  int           `mapstructure:"port"`
 }
 
 type Config struct {
