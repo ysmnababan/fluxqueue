@@ -4,10 +4,11 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"fluxqueue/internal/api/http/response"
-	"fluxqueue/internal/model"
 	"fmt"
 	"time"
+
+	"fluxqueue/internal/api/http/response"
+	"fluxqueue/internal/model"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -33,6 +34,17 @@ func NewHandler(redis IRedisClient) *handler {
 	return h
 }
 
+// @Summary Enqueue
+// @Description Enqueue
+// @Tags ingestor
+// @Accept json
+// @Produce json
+// @Param req body handler.EnqueueRequest true "change this description"
+// @Success 200 {object} default.Success "success"
+// @Failure 500 {object} default.Failure "error"
+// @Failure 400 {object} default.Failure "error"
+// @Failure 404 {object} default.Failure "error"
+// @Router /api/v1/enqueue [post]
 func (h *handler) Enqueue(c echo.Context) error {
 	req := new(EnqueueRequest)
 	if err := c.Bind(req); err != nil {
@@ -70,6 +82,17 @@ func (h *handler) Enqueue(c echo.Context) error {
 		}, c)
 }
 
+// @Summary Schedule
+// @Description Schedule
+// @Tags ingestor
+// @Accept json
+// @Produce json
+// @Param req body handler.ScheduleRequest true "change this description"
+// @Success 200 {object} default.Success "success"
+// @Failure 500 {object} default.Failure "error"
+// @Failure 400 {object} default.Failure "error"
+// @Failure 404 {object} default.Failure "error"
+// @Router /api/v1/schedule [post]
 func (h *handler) Schedule(c echo.Context) error {
 	req := new(ScheduleRequest)
 	if err := c.Bind(req); err != nil {
