@@ -77,12 +77,30 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prom_targets:/etc/prometheus/file_sd:ro # mount folder where script writes
       - prometheus-data:/prometheus
     # restart: unless-stopped
     depends_on:
       - api
     networks:
       - monitoring
+
+  prom-sd-generator:
+    image: docker:cli # official docker client image
+    container_name: prom-sd-generator
+    # restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro # required so docker CLI can query containers
+      - ./prom_targets:/prom_targets # where the generator writes the JSON
+      - ./scripts:/scripts:ro # script location
+    networks:
+      - monitoring
+    entrypoint:
+      [
+        "sh",
+        "-c",
+        "while true; do /scripts/generate_worker_sd.sh /prom_targets/worker_targets.json fluxqueue_monitoring worker; sleep 10; done",
+      ]
 
   grafana:
     image: grafana/grafana-enterprise

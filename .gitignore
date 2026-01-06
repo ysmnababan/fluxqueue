@@ -16,3 +16,4 @@
 /secret.yml
 config.yaml
 /tmp
+/prom_targets
