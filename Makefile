@@ -9,6 +9,12 @@ dev-up:
 	@echo "Creating dev stack..."
 	docker compose -f $(DEV_COMPOSE) up --build -d
 
+## dev-up-scaled: Create dev stack with scaled workers (default WORKERS=3)
+WORKERS ?= 3
+dev-up-scaled:
+	@echo "Creating dev stack with $(WORKERS) workers ..."
+	docker compose -f $(DEV_COMPOSE) up --build -d --scale worker=$(WORKERS)
+
 ## dev-down: Stop dev stack
 dev-down:
 	@echo "Stopping dev stack..."
