@@ -1,0 +1,15 @@
+all: false
+force-file-write: true
+formatter: goimports
+log-level: info
+recursive: false
+template: testify
+packages:
+  fluxqueue/internal/api/http/handler:
+    config:
+      dir: "{{.InterfaceDir}}"
+      filename: "{{.InterfaceName}}_mock.go"
+      pkgname: "{{.SrcPackageName}}"
+      structname: "Mock{{.InterfaceName}}"
+    interfaces:
+      IRedisClient:
