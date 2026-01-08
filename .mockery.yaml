@@ -8,7 +8,7 @@ packages:
   fluxqueue/internal/api/http/handler:
     config:
       dir: "{{.InterfaceDir}}"
-      filename: "{{.InterfaceName}}_mock.go"
+      filename: "{{.InterfaceName}}_mock_test.go"
       pkgname: "{{.SrcPackageName}}"
       structname: "Mock{{.InterfaceName}}"
     interfaces:

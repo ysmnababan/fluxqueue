@@ -68,10 +68,10 @@ func (h *handler) Enqueue(c echo.Context) error {
 		CreatedAt:      now,
 	}
 
-	data, err := json.Marshal(task)
-	if err != nil {
-		return response.Wrap(response.ErrInternalServerError, fmt.Errorf("error marshalling: %w", err))
-	}
+	data, _ := json.Marshal(task)
+	// if err != nil {
+	// 	return response.Wrap(response.ErrInternalServerError, fmt.Errorf("error marshalling: %w", err))
+	// }
 	if err := h.redis.LPush(c.Request().Context(), h.queueReady, string(data)); err != nil {
 		return response.Wrap(response.ErrInternalServerError, fmt.Errorf("error redis push: %w", err))
 	}
