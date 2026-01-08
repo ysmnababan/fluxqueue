@@ -271,8 +271,13 @@ func TestWorkerPool_StartStop_NoLeak(t *testing.T) {
 	reg := NewRegistry()
 	w := NewWorkerPool(5, redis, reg, 1, 1)
 
-	// ctx, cancel := context.WithCancel(context.Background())
-	w.Start(context.Background())
-	// cancel()
+	redis.EXPECT().BRPop(mock.Anything, mock.Anything, mock.Anything).Return("", nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	w.Start(ctx)
+	cancel()
 	w.Stop()
 }
+
+// TODO
+// add integ test for ensuring middle cancel will not throw away task in channel
+// then test the BRPop with ctx.Err() to see if we can directly use the 0 timeout instead of time.Second

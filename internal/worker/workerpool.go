@@ -87,16 +87,14 @@ func (w *WorkerPool) Start(ctx context.Context) {
 }
 
 func (w *WorkerPool) consumeTaskFromStore(ctx context.Context) {
+	defer w.consumerWg.Done()
+
 	for {
-		select {
-		case <-ctx.Done():
-			w.consumerWg.Done()
-			log.Info().Msg("close consumer")
-			return
-		default:
-		}
 		taskStr, err := w.redis.BRPop(ctx, time.Second, w.queueReady)
 		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
 			if err != redis.Nil {
 				log.Error().Err(err).Msg("error fetching task from store")
 			}
@@ -106,11 +104,19 @@ func (w *WorkerPool) consumeTaskFromStore(ctx context.Context) {
 		task := &model.Task{}
 		err = json.Unmarshal([]byte(taskStr), task)
 		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
 			log.Error().Err(err).Msg("error marshalling")
 			continue
 		}
 
-		w.taskChan <- task
+		select {
+		case w.taskChan <- task:
+		case <-ctx.Done():
+			log.Info().Msg("close consumer")
+			return
+		}
 	}
 }
 
