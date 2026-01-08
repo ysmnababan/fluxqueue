@@ -11,7 +11,7 @@ import (
 
 func TestScheduler_Success(t *testing.T) {
 	redis := NewMockIRedisClient(t)
-	scheduler := NewScheduler(redis, 10*time.Millisecond)
+	scheduler := NewScheduler(redis, 5*time.Millisecond)
 	ctx := context.Background()
 	redis.EXPECT().MoveScheduledToReady(
 		mock.Anything,
@@ -26,7 +26,7 @@ func TestScheduler_Success(t *testing.T) {
 
 func TestScheduler_Error(t *testing.T) {
 	redis := NewMockIRedisClient(t)
-	scheduler := NewScheduler(redis, 10*time.Millisecond)
+	scheduler := NewScheduler(redis, 5*time.Millisecond)
 	ctx := context.Background()
 	redis.EXPECT().MoveScheduledToReady(
 		mock.Anything,

@@ -2,8 +2,9 @@
 package worker
 
 import (
-	"fluxqueue/internal/model"
 	"sync"
+
+	"fluxqueue/internal/model"
 )
 
 type HandlerRegistry struct {
@@ -23,13 +24,13 @@ func NewRegistry() *HandlerRegistry {
 
 func (r *HandlerRegistry) Register(taskType string, fun model.HandlerFunc) {
 	r.mu.Lock() // exclusive writes, only one goroutine can modify at a time
+	defer r.mu.Unlock()
 	r.handlers[taskType] = fun
-	r.mu.Unlock()
 }
 
 func (r *HandlerRegistry) Get(taskType string) (model.HandlerFunc, bool) {
 	r.mu.RLock() // concurrent reads, multiple goroutines can read simultaneously
+	defer r.mu.RUnlock()
 	fun, ok := r.handlers[taskType]
-	r.mu.RUnlock()
 	return fun, ok
 }

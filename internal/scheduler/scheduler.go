@@ -4,6 +4,7 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -19,6 +20,7 @@ type Scheduler struct {
 	redis          IRedisClient
 	cancelFunc     context.CancelFunc
 	tickInterval   time.Duration
+	wg             *sync.WaitGroup
 }
 
 func NewScheduler(redis IRedisClient, tickInterval time.Duration) Scheduler {
@@ -27,6 +29,7 @@ func NewScheduler(redis IRedisClient, tickInterval time.Duration) Scheduler {
 		queueReady:     "queue:ready",
 		redis:          redis,
 		tickInterval:   tickInterval,
+		wg:             &sync.WaitGroup{},
 	}
 }
 
@@ -34,7 +37,10 @@ func (s *Scheduler) Start(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	s.cancelFunc = cancel
 	ticker := time.NewTicker(s.tickInterval)
+	s.wg.Add(1)
 	go func() {
+		defer s.wg.Done()
+		defer ticker.Stop()
 		log.Info().Msg("[SCHEDULER STARTED]")
 		for {
 			select {
@@ -59,4 +65,5 @@ func (s *Scheduler) Start(ctx context.Context) {
 
 func (s *Scheduler) Stop() {
 	s.cancelFunc()
+	s.wg.Wait()
 }
