@@ -4,14 +4,13 @@ package service
 import (
 	"context"
 	"errors"
-	"fluxqueue/internal/model"
 	"fmt"
-	"math/rand"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
+
+	"fluxqueue/internal/model"
 
 	"github.com/rs/zerolog/log"
 	"github.com/xuri/excelize/v2"
@@ -38,12 +37,6 @@ func NewTaskService(storage IStorage, email IEmail) *Service {
 }
 
 func (s *Service) SendEmail(ctx context.Context, t *model.Task) error {
-	// simulate sending an email
-	// payload:= &struct {
-	// 	to string
-	// 	body string
-	// 	subject string
-	// }{}
 	body, ok := (t.Payload["body"]).(string)
 	if !ok {
 		return errors.New("body is not string ")
@@ -113,18 +106,18 @@ func (s Service) GenerateExcelReport(ctx context.Context, t *model.Task) error {
 }
 
 // helper function to generate error based on percentage
-func simulateError(errorPercent int) error {
-	prob := []int{}
-	for range 100 {
-		val := rand.Intn(100)
-		if slices.Contains(prob, val) {
-			continue
-		}
-		prob = append(prob, val)
-	}
-
-	if slices.Contains(prob, errorPercent) {
-		return errors.New("some error")
-	}
-	return nil
-}
+// func simulateError(errorPercent int) error {
+// 	prob := []int{}
+// 	for range 100 {
+// 		val := rand.Intn(100)
+// 		if slices.Contains(prob, val) {
+// 			continue
+// 		}
+// 		prob = append(prob, val)
+// 	}
+//
+// 	if slices.Contains(prob, errorPercent) {
+// 		return errors.New("some error")
+// 	}
+// 	return nil
+// }

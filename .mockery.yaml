@@ -13,3 +13,12 @@ packages:
       structname: "Mock{{.InterfaceName}}"
     interfaces:
       IRedisClient:
+  fluxqueue/internal/service:
+    config:
+      dir: "{{.InterfaceDir}}"
+      filename: "{{.InterfaceName}}_mock_test.go"
+      pkgname: "{{.SrcPackageName}}"
+      structname: "Mock{{.InterfaceName}}"
+    interfaces:
+      IStorage:
+      IEmail:
