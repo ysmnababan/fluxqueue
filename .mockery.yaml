@@ -22,3 +22,11 @@ packages:
     interfaces:
       IStorage:
       IEmail:
+  fluxqueue/internal/scheduler:
+    config:
+      dir: "{{.InterfaceDir}}"
+      filename: "{{.InterfaceName}}_mock_test.go"
+      pkgname: "{{.SrcPackageName}}"
+      structname: "Mock{{.InterfaceName}}"
+    interfaces:
+      IRedisClient:

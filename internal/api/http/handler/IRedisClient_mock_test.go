@@ -15,8 +15,7 @@ import (
 func NewMockIRedisClient(t interface {
 	mock.TestingT
 	Cleanup(func())
-},
-) *MockIRedisClient {
+}) *MockIRedisClient {
 	mock := &MockIRedisClient{}
 	mock.Mock.Test(t)
 
