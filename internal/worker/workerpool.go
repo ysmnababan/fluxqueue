@@ -5,18 +5,21 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	metric "fluxqueue/internal/metrics"
-	"fluxqueue/internal/model"
 	"math"
 	"sync"
 	"time"
+
+	metric "fluxqueue/internal/metrics"
+	"fluxqueue/internal/model"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
 )
 
-var errMaxRetriesExceeded = errors.New("max retries exceeded")
-var errHandlerNotRegistered = errors.New("handler not registered")
+var (
+	errMaxRetriesExceeded   = errors.New("max retries exceeded")
+	errHandlerNotRegistered = errors.New("handler not registered")
+)
 
 type IRedisClient interface {
 	BRPop(ctx context.Context, timeout time.Duration, keys ...string) (string, error)
@@ -41,12 +44,13 @@ type WorkerPool struct {
 	cancelFunc        context.CancelFunc
 	baseRetryInterval int
 	taskChan          chan *model.Task
+	moveToDLQ         func(ctx context.Context, task *model.Task, err error)
 }
 
 func NewWorkerPool(maxWorkerPool int, r IRedisClient, registry *HandlerRegistry, retryInv, consumer int) WorkerPool {
 	wg := &sync.WaitGroup{}
 	consumerWg := &sync.WaitGroup{}
-	return WorkerPool{
+	wp := WorkerPool{
 		redis:             r,
 		registry:          registry,
 		maxWorkers:        maxWorkerPool,
@@ -60,6 +64,8 @@ func NewWorkerPool(maxWorkerPool int, r IRedisClient, registry *HandlerRegistry,
 		redisConsumer:     consumer,
 		taskChan:          make(chan *model.Task, 2*maxWorkerPool),
 	}
+	wp.moveToDLQ = wp.moveToDLQImpl
+	return wp
 }
 
 func (w *WorkerPool) Start(ctx context.Context) {
@@ -88,23 +94,23 @@ func (w *WorkerPool) consumeTaskFromStore(ctx context.Context) {
 			log.Info().Msg("close consumer")
 			return
 		default:
-			taskStr, err := w.redis.BRPop(ctx, time.Second, w.queueReady)
-			if err != nil {
-				if err != redis.Nil {
-					log.Error().Err(err).Msg("error fetching task from store")
-				}
-				continue
-			}
-
-			task := &model.Task{}
-			err = json.Unmarshal([]byte(taskStr), task)
-			if err != nil {
-				log.Error().Err(err).Msg("error marshalling")
-				continue
-			}
-
-			w.taskChan <- task
 		}
+		taskStr, err := w.redis.BRPop(ctx, time.Second, w.queueReady)
+		if err != nil {
+			if err != redis.Nil {
+				log.Error().Err(err).Msg("error fetching task from store")
+			}
+			continue
+		}
+
+		task := &model.Task{}
+		err = json.Unmarshal([]byte(taskStr), task)
+		if err != nil {
+			log.Error().Err(err).Msg("error marshalling")
+			continue
+		}
+
+		w.taskChan <- task
 	}
 }
 
@@ -200,7 +206,7 @@ func (w *WorkerPool) processTask(ctx context.Context, workerID int, task *model.
 	}
 }
 
-func (w *WorkerPool) moveToDLQ(ctx context.Context, task *model.Task, err error) {
+func (w *WorkerPool) moveToDLQImpl(ctx context.Context, task *model.Task, err error) {
 	now := time.Now().UTC()
 	task.FailedAt = &now
 	task.LastError = err.Error()
