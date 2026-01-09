@@ -1,0 +1,56 @@
+// Package config provides configuration loading from files and environment variables using viper.
+// internal/config/config.go
+package config
+
+import (
+	"time"
+)
+
+type RedisConfig struct {
+	Addr     string `mapstructure:"addr"`
+	Password string `mapstructure:"password"`
+	DB       int    `mapstructure:"db"`
+	// add other redis-related settings if needed
+	Worker int `mapstructure:"worker"`
+}
+
+type ServerConfig struct {
+	HTTPPort        int           `mapstructure:"http_port"`
+	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
+	Env             string        `mapstructure:"env"`
+	ServiceName     string        `mapstructure:"service_name"`
+	Version         string        `mapstructure:"version"`
+}
+
+type WorkerConfig struct {
+	WorkerCount           int           `mapstructure:"worker_count"`
+	JobTimeout            time.Duration `mapstructure:"job_timeout"`
+	MaxRetries            int           `mapstructure:"max_retries"`
+	SchedulerTickInterval int           `mapstructure:"scheduler_tick_interval"` // in millisecond
+	BaseRetryInterval     int           `mapstructure:"base_retry_interval"`     // in second
+	Port                  int           `mapstructure:"port"`
+}
+
+type Config struct {
+	Redis    RedisConfig   `mapstructure:"redis"`
+	Server   ServerConfig  `mapstructure:"server"`
+	Worker   WorkerConfig  `mapstructure:"worker"`
+	LogLevel string        `mapstructure:"log_level"`
+	Storage  StorageConfig `mapstructure:"storage"`
+	Email    EmailConfig   `mapstructure:"email"`
+}
+
+type StorageConfig struct {
+	Endpoint        string `mapstructure:"endpoint"`
+	AccessKey       string `mapstructure:"access_key"`
+	SecretAccessKey string `mapstructure:"secret_access_key"`
+}
+
+type EmailConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
+	From     string `mapstructure:"from"`
+	UseTLS   bool   `mapstructure:"usetls"`
+}

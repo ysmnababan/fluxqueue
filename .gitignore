@@ -14,3 +14,7 @@
 /config.yml
 /secret
 /secret.yml
+config.yaml
+/tmp
+/prom_targets
+coverage.out

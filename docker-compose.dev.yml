@@ -1,0 +1,127 @@
+services:
+  mailhog:
+    container_name: mailhog
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - 1025:1025
+      - 8025:8025
+    networks:
+      - monitoring
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z-cpuv1
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9091:9091"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server --console-address ":9091" /data
+    networks:
+      - monitoring
+  redis:
+    image: redis:7.2
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - monitoring
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: api
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis
+      - minio
+      - mailhog
+    networks:
+      - monitoring
+    # restart: unless-stopped
+    environment:
+      - REDIS_ADDR=redis:6379
+    volumes:
+      - .:/app
+      - go-mod-cache:/go/pkg/mod
+      - ./configs:/app/configs
+    command: ["sh", "-c", "air -c /app/.air.toml -- -mode=api"]
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    depends_on:
+      - redis
+      - minio
+    networks:
+      - monitoring
+    environment:
+      - REDIS_ADDR=redis:6379
+      - MODE=worker
+    volumes:
+      - .:/app
+      - go-mod-cache:/go/pkg/mod
+      - ./configs:/app/configs
+    # Option B (if you want hot reload for worker too): uncomment the next line and comment the go-run above
+    command: ["sh", "-c", "air -c /app/.air.toml -- -mode=worker"]
+    expose:
+      - "8090"
+
+  prometheus:
+    image: prom/prometheus:v2.53.5
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prom_targets:/etc/prometheus/file_sd:ro # mount folder where script writes
+      - prometheus-data:/prometheus
+    # restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      - monitoring
+
+  prom-sd-generator:
+    image: docker:cli # official docker client image
+    container_name: prom-sd-generator
+    # restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro # required so docker CLI can query containers
+      - ./prom_targets:/prom_targets # where the generator writes the JSON
+      - ./scripts:/scripts:ro # script location
+    networks:
+      - monitoring
+    entrypoint:
+      [
+        "sh",
+        "-c",
+        "while true; do /scripts/generate_worker_sd.sh /prom_targets/worker_targets.json fluxqueue_monitoring worker; sleep 10; done",
+      ]
+
+  grafana:
+    image: grafana/grafana-enterprise
+    container_name: grafana
+    # restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - "grafana-storage:/var/lib/grafana"
+    networks:
+      - monitoring
+    environment:
+      - GR_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus-data:
+  grafana-storage:
+  go-mod-cache:
+
+networks:
+  monitoring:
+    driver: bridge

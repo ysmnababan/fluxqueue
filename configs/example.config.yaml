@@ -1,0 +1,34 @@
+redis:
+  addr: "redis:6378"
+  password: ""
+  db: 0
+  worker: 3
+
+server:
+  http_port: 8079
+  shutdown_timeout: "4s"
+  env: development
+  service_name: fluxqueue
+  version: v0.1.0
+
+worker: 
+  worker_count: 100  
+  job_timeout: "45s"
+  max_retries: 5
+  scheduler_tick_interval: 100
+  base_retry_interval: 2
+
+log_level: "debug"
+
+storage:
+  endpoint: minio:9000
+  access_key: minioadmin 
+  secret_access_key: minioadmin
+
+email:
+  host: "mailhog"
+  port: 1025 
+  username: ""
+  password: ""
+  from: "admin@test.com"
+  usetls: false

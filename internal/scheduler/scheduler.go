@@ -1,0 +1,69 @@
+// Package scheduler moves scheduled tasks from the ZSET to the ready queue when their execution time arrives.
+package scheduler
+
+import (
+	"context"
+	"fmt"
+	"sync"
+	"time"
+
+	"github.com/rs/zerolog/log"
+)
+
+type IRedisClient interface {
+	MoveScheduledToReady(ctx context.Context, zsetKey, readyListKey, maxScore string) (int64, error)
+}
+
+type Scheduler struct {
+	queueScheduled string
+	queueReady     string
+	redis          IRedisClient
+	cancelFunc     context.CancelFunc
+	tickInterval   time.Duration
+	wg             *sync.WaitGroup
+}
+
+func NewScheduler(redis IRedisClient, tickInterval time.Duration) Scheduler {
+	return Scheduler{
+		queueScheduled: "queue:scheduled",
+		queueReady:     "queue:ready",
+		redis:          redis,
+		tickInterval:   tickInterval,
+		wg:             &sync.WaitGroup{},
+	}
+}
+
+func (s *Scheduler) Start(ctx context.Context) {
+	ctx, cancel := context.WithCancel(ctx)
+	s.cancelFunc = cancel
+	ticker := time.NewTicker(s.tickInterval)
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		defer ticker.Stop()
+		log.Info().Msg("[SCHEDULER STARTED]")
+		for {
+			select {
+			case <-ctx.Done():
+				log.Info().Msg("Scheduler is terminating ...")
+				return
+			case <-ticker.C:
+				// take a executable task(s)
+				now := time.Now().UTC().UnixMilli()
+				moved, err := s.redis.MoveScheduledToReady(ctx, s.queueScheduled, s.queueReady, fmt.Sprintf("%d", now))
+				if err != nil {
+					log.Error().Err(err).Msg("scheduler failed")
+					continue
+				}
+				if moved > 0 {
+					log.Info().Msgf("scheduler moved %d items to ready queue", moved)
+				}
+			}
+		}
+	}()
+}
+
+func (s *Scheduler) Stop() {
+	s.cancelFunc()
+	s.wg.Wait()
+}
