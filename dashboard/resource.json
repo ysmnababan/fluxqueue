@@ -24,7 +24,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bf7yb81j4hqf4a"
+        "uid": "ff9mtz562pkw0a"
       },
       "fieldConfig": {
         "defaults": {
@@ -121,7 +121,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bf7yb81j4hqf4a"
+        "uid": "ff9mtz562pkw0a"
       },
       "fieldConfig": {
         "defaults": {
@@ -204,7 +204,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "go_memstats_alloc_bytes{job=\"api\"}",
+          "expr": "go_memstats_alloc_bytes{}",
           "legendFormat": "api",
           "range": true,
           "refId": "A"
@@ -216,7 +216,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bf7yb81j4hqf4a"
+        "uid": "ff9mtz562pkw0a"
       },
       "fieldConfig": {
         "defaults": {
@@ -252,9 +252,7 @@
         "minVizWidth": 75,
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
@@ -270,8 +268,8 @@
             "uid": "bf7yb81j4hqf4a"
           },
           "editorMode": "builder",
-          "expr": "rate(process_cpu_seconds_total{job=\"api\"}[1m]) * 100",
-          "legendFormat": "__auto",
+          "expr": "rate(process_cpu_seconds_total{}[1m]) * 100",
+          "legendFormat": "{{job}}",
           "range": true,
           "refId": "A"
         }
@@ -282,7 +280,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bf7yb81j4hqf4a"
+        "uid": "ff9mtz562pkw0a"
       },
       "fieldConfig": {
         "defaults": {
@@ -318,9 +316,7 @@
         "minVizWidth": 75,
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
@@ -331,8 +327,8 @@
       "pluginVersion": "12.3.1",
       "targets": [
         {
-          "editorMode": "code",
-          "expr": "go_goroutines{job=\"api\"}",
+          "editorMode": "builder",
+          "expr": "sum(go_goroutines)",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -357,5 +353,6 @@
   "timezone": "browser",
   "title": "Resources",
   "uid": "adfqrzr",
-  "version": 9
+  "version": 3
 }
+

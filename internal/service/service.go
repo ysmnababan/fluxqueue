@@ -5,8 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -106,18 +108,18 @@ func (s Service) GenerateExcelReport(ctx context.Context, t *model.Task) error {
 }
 
 // helper function to generate error based on percentage
-// func simulateError(errorPercent int) error {
-// 	prob := []int{}
-// 	for range 100 {
-// 		val := rand.Intn(100)
-// 		if slices.Contains(prob, val) {
-// 			continue
-// 		}
-// 		prob = append(prob, val)
-// 	}
-//
-// 	if slices.Contains(prob, errorPercent) {
-// 		return errors.New("some error")
-// 	}
-// 	return nil
-// }
+func simulateError(errorPercent int) error {
+	prob := []int{}
+	for range 100 {
+		val := rand.Intn(100)
+		if slices.Contains(prob, val) {
+			continue
+		}
+		prob = append(prob, val)
+	}
+
+	if slices.Contains(prob, errorPercent) {
+		return errors.New("some error")
+	}
+	return nil
+}

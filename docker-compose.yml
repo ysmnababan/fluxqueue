@@ -1,4 +1,12 @@
 services:
+  mailhog:
+    container_name: mailhog
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - 1025:1025
+      - 8025:8025
+    networks:
+      - monitoring
   redis:
     image: redis:7.2
     container_name: redis
@@ -22,7 +30,7 @@ services:
     restart: unless-stopped
     environment:
       - REDIS_ADDR=redis:6379
-    command: ["/app/api", "-mode=api"]
+    command: ["-mode=api"]
 
   worker:
     build:
@@ -35,7 +43,7 @@ services:
     restart: unless-stopped
     environment:
       - REDIS_ADDR=redis:6379
-    command: ["/app/api", "-mode=worker"]
+    command: ["-mode=worker"]
     expose:
       - "8090"
 
@@ -93,4 +101,3 @@ volumes:
 networks:
   monitoring:
     driver: bridge
-

@@ -81,6 +81,8 @@ func (w *WorkerPool) Start(ctx context.Context) {
 	w.wg.Add(w.maxWorkers)
 	w.consumerWg.Add(w.redisConsumer)
 	log.Info().Msgf("[CONSUMER POOL STARTED]: %d instances", w.redisConsumer)
+	capacity := cap(w.taskChan)
+	metric.TasksInChannel.WithLabelValues("capacity").Set(float64(capacity))
 	for range w.redisConsumer {
 		go w.consumeTaskFromStore(controlCtx)
 	}
@@ -118,6 +120,7 @@ func (w *WorkerPool) consumeTaskFromStore(ctx context.Context) {
 
 		select {
 		case w.taskChan <- task:
+			metric.TasksInChannel.WithLabelValues("popped").Inc()
 		case <-ctx.Done():
 			log.Info().Msg("close consumer")
 			// push back the task to redis
@@ -142,6 +145,7 @@ func (w *WorkerPool) workerLoop(ctx context.Context, workerID int) {
 	}()
 
 	for task := range w.taskChan {
+		metric.TasksInChannel.WithLabelValues("popped").Dec()
 		w.processTask(ctx, workerID, task)
 	}
 }

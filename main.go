@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	api "fluxqueue/internal/api/http"
@@ -39,7 +40,7 @@ func main() {
 			log.Fatalf("Failed to start server: %v", err)
 		}
 		sig := make(chan os.Signal, 1)
-		signal.Notify(sig, os.Interrupt)
+		signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 		<-sig
 
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -56,7 +57,7 @@ func main() {
 		worker.Start(context.Background())
 
 		sig := make(chan os.Signal, 1)
-		signal.Notify(sig, os.Interrupt)
+		signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 		<-sig
 
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
