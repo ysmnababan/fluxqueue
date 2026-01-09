@@ -65,6 +65,14 @@ var (
 		},
 		[]string{"type"},
 	)
+
+	TaskDLQFailures = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "task_dlq_failures",
+			Help: "Total number of task failed when stored to DLQ",
+		},
+		[]string{"type"},
+	)
 )
 
 func init() {

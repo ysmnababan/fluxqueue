@@ -6,7 +6,8 @@ services:
       - "6379:6379"
     networks:
       - monitoring
-  
+    restart: unless-stopped
+
   api:
     build:
       context: .
@@ -18,10 +19,25 @@ services:
       - redis
     networks:
       - monitoring
+    restart: unless-stopped
     environment:
-      - REDIS_ADDR=6379
-    volumes:
-      - go-mod-cache:/go/pkg/mod
+      - REDIS_ADDR=redis:6379
+    command: ["/app/api", "-mode=api"]
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - redis
+    networks:
+      - monitoring
+    restart: unless-stopped
+    environment:
+      - REDIS_ADDR=redis:6379
+    command: ["/app/api", "-mode=worker"]
+    expose:
+      - "8090"
 
   prometheus:
     image: prom/prometheus:v2.53.5
@@ -30,19 +46,39 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prom_targets:/etc/prometheus/file_sd:ro
       - prometheus-data:/prometheus
+    restart: unless-stopped
     depends_on:
       - api
     networks:
       - monitoring
-  
+
+  prom-sd-generator:
+    image: docker:cli
+    container_name: prom-sd-generator
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./prom_targets:/prom_targets
+      - ./scripts:/scripts:ro
+    networks:
+      - monitoring
+    entrypoint:
+      [
+        "sh",
+        "-c",
+        "while true; do /scripts/generate_worker_sd.sh /prom_targets/worker_targets.json fluxqueue_monitoring worker; sleep 10; done",
+      ]
+
   grafana:
     image: grafana/grafana-enterprise
     container_name: grafana
+    restart: unless-stopped
     ports:
       - "3000:3000"
     volumes:
-    - 'grafana-storage:/var/lib/grafana'
+      - "grafana-storage:/var/lib/grafana"
     networks:
       - monitoring
     environment:
@@ -52,9 +88,9 @@ services:
 
 volumes:
   prometheus-data:
-  grafana-storage: 
-  go-mod-cache:
+  grafana-storage:
 
 networks:
   monitoring:
     driver: bridge
+

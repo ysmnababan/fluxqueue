@@ -19,7 +19,7 @@ type Processor struct {
 	Cfg *config.Config
 
 	Redis     *store.RedisStore
-	Worker    worker.WorkerPool
+	Worker    *worker.WorkerPool
 	Scheduler scheduler.Scheduler
 }
 

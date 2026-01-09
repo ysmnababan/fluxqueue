@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -45,9 +46,10 @@ type WorkerPool struct {
 	baseRetryInterval int
 	taskChan          chan *model.Task
 	moveToDLQ         func(ctx context.Context, task *model.Task, err error)
+	mu                sync.Mutex
 }
 
-func NewWorkerPool(maxWorkerPool int, r IRedisClient, registry *HandlerRegistry, retryInv, consumer int) WorkerPool {
+func NewWorkerPool(maxWorkerPool int, r IRedisClient, registry *HandlerRegistry, retryInv, consumer int) *WorkerPool {
 	wg := &sync.WaitGroup{}
 	consumerWg := &sync.WaitGroup{}
 	wp := WorkerPool{
@@ -63,14 +65,17 @@ func NewWorkerPool(maxWorkerPool int, r IRedisClient, registry *HandlerRegistry,
 		baseRetryInterval: retryInv,
 		redisConsumer:     consumer,
 		taskChan:          make(chan *model.Task, 2*maxWorkerPool),
+		mu:                sync.Mutex{},
 	}
 	wp.moveToDLQ = wp.moveToDLQImpl
-	return wp
+	return &wp
 }
 
 func (w *WorkerPool) Start(ctx context.Context) {
 	controlCtx, cancel := context.WithCancel(ctx)
+	w.mu.Lock()
 	w.cancelFunc = cancel
+	w.mu.Unlock()
 	taskCtx := context.Background()
 
 	w.wg.Add(w.maxWorkers)
@@ -133,17 +138,23 @@ func (w *WorkerPool) workerLoop(ctx context.Context, workerID int) {
 
 func (w *WorkerPool) Stop() {
 	log.Info().Msg("Worker is terminating ...")
-	w.cancelFunc()
+	w.mu.Lock()
+	if w.cancelFunc != nil {
+		w.cancelFunc()
+	}
+	w.mu.Unlock()
 	w.consumerWg.Wait()
 	close(w.taskChan)
 	w.wg.Wait()
 }
 
 func (w *WorkerPool) processTask(ctx context.Context, workerID int, task *model.Task) {
+	var handleErr error
 	start := time.Now()
 	defer func() {
 		if r := recover(); r != nil {
 			log.Error().Msgf("worker %d panic: %v", workerID, r)
+			handleErr = fmt.Errorf("error while panicking %v", r)
 		}
 	}()
 
@@ -173,9 +184,16 @@ func (w *WorkerPool) processTask(ctx context.Context, workerID int, task *model.
 		w.moveToDLQ(ctx, task, errHandlerNotRegistered)
 		return
 	}
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	timeout := 30 * time.Second
+	if task.TimeoutSeconds != 0 {
+		timeout = time.Duration(task.TimeoutSeconds) * time.Second
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	err = handler(ctx, task)
+	if handleErr != nil {
+		err = handleErr
+	}
 	if err == nil {
 		metric.TaskProcessedTotal.WithLabelValues(task.Type).Inc()
 		err = w.redis.Set(ctx, key, "done", time.Hour)
@@ -187,7 +205,7 @@ func (w *WorkerPool) processTask(ctx context.Context, workerID int, task *model.
 
 	_, errRedis := w.redis.Del(ctx, key)
 	if errRedis != nil {
-		log.Error().Err(err)
+		log.Error().Err(errRedis)
 	}
 	task.Attempts++
 	if task.Attempts > task.MaxRetries {
@@ -219,9 +237,12 @@ func (w *WorkerPool) moveToDLQImpl(ctx context.Context, task *model.Task, err er
 	data, err := json.Marshal(task)
 	if err != nil {
 		log.Error().Err(err)
+		metric.TaskDLQFailures.WithLabelValues("error marshal").Inc()
+		return
 	}
 	err = w.redis.LPush(ctx, w.queueDead, string(data))
 	if err != nil {
 		log.Error().Err(err)
+		metric.TaskDLQFailures.WithLabelValues("error redis LPush").Inc()
 	}
 }
