@@ -73,6 +73,29 @@ var (
 		},
 		[]string{"type"},
 	)
+	TaskPushedBack = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "tasks_pushed_back_total",
+			Help: "Total number of tasks pushed back to Redis due to cancellation",
+		},
+		[]string{"task_type"},
+	)
+
+	TaskPushBackFailures = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "task_push_back_failures_total",
+			Help: "Total number of push-back failures",
+		},
+		[]string{"task_type"},
+	)
+
+	TasksInChannel = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "tasks_in_channel",
+			Help: "Number of tasks currently in the channel",
+		},
+		[]string{"source"}, // "popped" or "total_capacity"
+	)
 )
 
 func init() {
@@ -82,6 +105,10 @@ func init() {
 	prometheus.MustRegister(TaskFailedTotal)
 	prometheus.MustRegister(TaskRetriedTotal)
 	prometheus.MustRegister(TaskProcessingDuration)
+	prometheus.MustRegister(TaskDLQFailures)
+	prometheus.MustRegister(TaskPushBackFailures)
+	prometheus.MustRegister(TaskPushedBack)
+	prometheus.MustRegister(TasksInChannel)
 }
 
 func TrackMetrics(next echo.HandlerFunc) echo.HandlerFunc {

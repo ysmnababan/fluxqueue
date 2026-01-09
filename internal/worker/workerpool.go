@@ -120,6 +120,16 @@ func (w *WorkerPool) consumeTaskFromStore(ctx context.Context) {
 		case w.taskChan <- task:
 		case <-ctx.Done():
 			log.Info().Msg("close consumer")
+			// push back the task to redis
+			pushCtx := context.Background()
+			err := w.redis.LPush(pushCtx, w.queueReady, taskStr)
+			if err != nil {
+				log.Error().Err(err).Msgf("[CRITICAL] failed to push task %s back to redis", task.ID)
+				metric.TaskPushBackFailures.WithLabelValues(task.Type).Inc()
+			} else {
+				log.Info().Msgf("task %s successfully pushed back to redis", task.ID)
+				metric.TaskPushedBack.WithLabelValues(task.Type).Inc()
+			}
 			return
 		}
 	}

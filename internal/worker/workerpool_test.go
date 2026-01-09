@@ -28,7 +28,9 @@ func TestConsumeTaskFromStore_Success(t *testing.T) {
 	redis.EXPECT().
 		BRPop(mock.Anything, mock.Anything, mock.Anything).
 		Return(string(taskStr), nil)
-
+	redis.EXPECT().
+		LPush(mock.Anything, mock.Anything, mock.Anything).
+		Return(nil)
 	go w.consumeTaskFromStore(ctx)
 
 	select {
